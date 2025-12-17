@@ -26,6 +26,14 @@ export default function LoginScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
   useEffect(() => {
     if (!authLoading && user) {
       router.replace('/');
@@ -204,7 +212,7 @@ export default function LoginScreen() {
                 <Text style={styles.link}>Crear cuenta</Text>
               </TouchableOpacity>
               <View style={styles.dot} />
-              <TouchableOpacity onPress={() => router.back()} disabled={disableActions}>
+              <TouchableOpacity onPress={handleBack} disabled={disableActions}>
                 <Text style={styles.link}>Volver</Text>
               </TouchableOpacity>
             </View>
