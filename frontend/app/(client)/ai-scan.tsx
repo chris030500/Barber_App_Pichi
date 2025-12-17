@@ -7,7 +7,9 @@ import {
   Image, 
   ScrollView,
   ActivityIndicator,
-  Platform 
+  TouchableOpacity,
+  Modal,
+  Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,24 +19,41 @@ import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
 
-// API URL
+const { width: screenWidth } = Dimensions.get('window');
+
 const API_URL = Constants.expoConfig?.extra?.backendUrl || 
                 process.env.EXPO_PUBLIC_BACKEND_URL || 
                 'https://barberpro-7.preview.emergentagent.com';
 
+interface HaircutStyle {
+  name: string;
+  description: string;
+  reference_image?: string;
+}
+
 interface AIScanResult {
   success: boolean;
   face_shape?: string;
-  recommendations: string[];
+  recommendations: HaircutStyle[];
   detailed_analysis?: string;
   error?: string;
 }
 
+interface GeneratedImage {
+  style: string;
+  image_base64: string;
+}
+
 export default function AIScanScreen() {
   const { user } = useAuth();
-  const [image, setImage] = useState<string | null>(null);
+  const [userImage, setUserImage] = useState<string | null>(null);
+  const [userImageBase64, setUserImageBase64] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<AIScanResult | null>(null);
+  const [generatingImage, setGeneratingImage] = useState<string | null>(null);
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
@@ -54,7 +73,8 @@ export default function AIScanScreen() {
 
     if (!imageResult.canceled && imageResult.assets[0].base64) {
       const base64Image = imageResult.assets[0].base64;
-      setImage(`data:image/jpeg;base64,${base64Image}`);
+      setUserImage(`data:image/jpeg;base64,${base64Image}`);
+      setUserImageBase64(base64Image);
       analyzeImage(base64Image);
     }
   };
@@ -77,7 +97,8 @@ export default function AIScanScreen() {
 
     if (!imageResult.canceled && imageResult.assets[0].base64) {
       const base64Image = imageResult.assets[0].base64;
-      setImage(`data:image/jpeg;base64,${base64Image}`);
+      setUserImage(`data:image/jpeg;base64,${base64Image}`);
+      setUserImageBase64(base64Image);
       analyzeImage(base64Image);
     }
   };
@@ -85,27 +106,22 @@ export default function AIScanScreen() {
   const analyzeImage = async (base64Image: string) => {
     setAnalyzing(true);
     setResult(null);
+    setGeneratedImages([]);
     
     try {
-      console.log('Sending image to AI analysis...');
-      
-      const response = await fetch(`${API_URL}/api/ai-scan`, {
+      // Use the v2 endpoint that includes reference images
+      const response = await fetch(`${API_URL}/api/ai-scan-v2`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image_base64: base64Image,
           user_id: user?.user_id || null,
         }),
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       
       const data: AIScanResult = await response.json();
-      console.log('AI Scan result:', data);
       
       if (data.success) {
         setResult(data);
@@ -115,23 +131,72 @@ export default function AIScanScreen() {
       }
     } catch (error: any) {
       console.error('Error analyzing image:', error);
-      Alert.alert(
-        'Error de conexión', 
-        'No se pudo conectar con el servidor de IA. Intenta de nuevo.'
-      );
-      setResult({
-        success: false,
-        recommendations: [],
-        error: error.message
-      });
+      Alert.alert('Error de conexión', 'No se pudo conectar con el servidor de IA.');
+      setResult({ success: false, recommendations: [], error: error.message });
     } finally {
       setAnalyzing(false);
     }
   };
 
+  const generatePersonalizedImage = async (styleName: string) => {
+    if (!userImageBase64) {
+      Alert.alert('Error', 'Primero debes tomar o seleccionar una foto');
+      return;
+    }
+
+    // Check if already generated
+    const existing = generatedImages.find(g => g.style === styleName);
+    if (existing) {
+      setSelectedImage(`data:image/png;base64,${existing.image_base64}`);
+      setModalVisible(true);
+      return;
+    }
+
+    setGeneratingImage(styleName);
+    
+    try {
+      const response = await fetch(`${API_URL}/api/generate-haircut-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_image_base64: userImageBase64,
+          haircut_style: styleName,
+        }),
+      });
+      
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      
+      const data = await response.json();
+      
+      if (data.success && data.generated_image_base64) {
+        const newGenerated: GeneratedImage = {
+          style: styleName,
+          image_base64: data.generated_image_base64
+        };
+        setGeneratedImages(prev => [...prev, newGenerated]);
+        setSelectedImage(`data:image/png;base64,${data.generated_image_base64}`);
+        setModalVisible(true);
+      } else {
+        Alert.alert('Error', data.error || 'No se pudo generar la imagen');
+      }
+    } catch (error: any) {
+      console.error('Error generating image:', error);
+      Alert.alert('Error', 'No se pudo generar la imagen personalizada');
+    } finally {
+      setGeneratingImage(null);
+    }
+  };
+
   const resetScan = () => {
-    setImage(null);
+    setUserImage(null);
+    setUserImageBase64(null);
     setResult(null);
+    setGeneratedImages([]);
+  };
+
+  const openImageModal = (imageUri: string) => {
+    setSelectedImage(imageUri);
+    setModalVisible(true);
   };
 
   return (
@@ -147,19 +212,19 @@ export default function AIScanScreen() {
           </View>
           <Text style={styles.title}>Escaneo IA Facial</Text>
           <Text style={styles.subtitle}>
-            Nuestra IA analiza tu rostro y recomienda los mejores estilos de corte
+            Analiza tu rostro y visualiza diferentes estilos de corte
           </Text>
         </View>
 
         <View style={styles.content}>
-          {!image ? (
+          {!userImage ? (
             <Card style={styles.uploadCard}>
               <View style={styles.cameraIconContainer}>
                 <Ionicons name="camera" size={60} color="#CBD5E1" />
               </View>
               <Text style={styles.uploadTitle}>Captura tu rostro</Text>
               <Text style={styles.uploadText}>
-                Toma una foto frontal clara para obtener las mejores recomendaciones
+                Toma una foto frontal clara para obtener recomendaciones y visualizaciones personalizadas
               </Text>
               <View style={styles.uploadButtons}>
                 <Button
@@ -180,56 +245,104 @@ export default function AIScanScreen() {
             </Card>
           ) : (
             <View style={styles.resultContainer}>
+              {/* User's Photo */}
               <Card style={styles.imageCard}>
-                <Image source={{ uri: image }} style={styles.image} />
+                <Text style={styles.sectionLabel}>Tu foto</Text>
+                <Image source={{ uri: userImage }} style={styles.userImage} />
               </Card>
 
+              {/* Analyzing State */}
               {analyzing && (
                 <Card style={styles.analyzingCard}>
                   <ActivityIndicator size="large" color="#2563EB" />
-                  <Text style={styles.analyzingText}>
-                    Analizando tu rostro con IA...
-                  </Text>
-                  <Text style={styles.analyzingSubtext}>
-                    Esto puede tomar unos segundos
-                  </Text>
+                  <Text style={styles.analyzingText}>Analizando tu rostro con IA...</Text>
+                  <Text style={styles.analyzingSubtext}>Esto puede tomar unos segundos</Text>
                 </Card>
               )}
 
+              {/* Results */}
               {result && result.success && (
                 <>
-                  {/* Face Shape Card */}
+                  {/* Face Shape */}
                   {result.face_shape && (
                     <Card style={styles.faceShapeCard}>
                       <View style={styles.faceShapeHeader}>
                         <Ionicons name="person-circle" size={28} color="#2563EB" />
-                        <Text style={styles.faceShapeTitle}>Forma de tu rostro</Text>
+                        <View>
+                          <Text style={styles.faceShapeLabel}>Forma de tu rostro</Text>
+                          <Text style={styles.faceShapeValue}>
+                            {result.face_shape.charAt(0).toUpperCase() + result.face_shape.slice(1)}
+                          </Text>
+                        </View>
                       </View>
-                      <Text style={styles.faceShapeValue}>
-                        {result.face_shape.charAt(0).toUpperCase() + result.face_shape.slice(1)}
-                      </Text>
                     </Card>
                   )}
 
-                  {/* Recommendations Card */}
-                  <Card style={styles.recommendationsCard}>
-                    <View style={styles.recommendationsHeader}>
-                      <Ionicons name="sparkles" size={24} color="#2563EB" />
-                      <Text style={styles.recommendationsTitle}>
-                        Cortes Recomendados
-                      </Text>
-                    </View>
-                    {result.recommendations.map((rec, index) => (
-                      <View key={index} style={styles.recommendationItem}>
-                        <View style={styles.recommendationNumber}>
-                          <Text style={styles.recommendationNumberText}>
-                            {index + 1}
-                          </Text>
+                  {/* Recommendations with Reference Images */}
+                  <Text style={styles.sectionTitle}>✂️ Cortes Recomendados</Text>
+                  
+                  {result.recommendations.map((rec, index) => {
+                    const isGenerating = generatingImage === rec.name;
+                    const hasGenerated = generatedImages.some(g => g.style === rec.name);
+                    
+                    return (
+                      <Card key={index} style={styles.recommendationCard}>
+                        <View style={styles.recHeader}>
+                          <View style={styles.recNumber}>
+                            <Text style={styles.recNumberText}>{index + 1}</Text>
+                          </View>
+                          <Text style={styles.recName}>{rec.name}</Text>
                         </View>
-                        <Text style={styles.recommendationText}>{rec}</Text>
-                      </View>
-                    ))}
-                  </Card>
+                        
+                        <Text style={styles.recDescription}>{rec.description}</Text>
+                        
+                        {/* Reference Image */}
+                        {rec.reference_image && (
+                          <TouchableOpacity 
+                            onPress={() => openImageModal(rec.reference_image!)}
+                            style={styles.referenceImageContainer}
+                          >
+                            <Image 
+                              source={{ uri: rec.reference_image }} 
+                              style={styles.referenceImage}
+                            />
+                            <View style={styles.referenceLabel}>
+                              <Ionicons name="image" size={14} color="#64748B" />
+                              <Text style={styles.referenceLabelText}>Imagen de referencia</Text>
+                            </View>
+                          </TouchableOpacity>
+                        )}
+                        
+                        {/* Generate Personalized Button */}
+                        <TouchableOpacity
+                          style={[
+                            styles.generateButton,
+                            hasGenerated && styles.generateButtonSuccess,
+                            isGenerating && styles.generateButtonLoading
+                          ]}
+                          onPress={() => generatePersonalizedImage(rec.name)}
+                          disabled={isGenerating}
+                        >
+                          {isGenerating ? (
+                            <>
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                              <Text style={styles.generateButtonText}>Generando...</Text>
+                            </>
+                          ) : hasGenerated ? (
+                            <>
+                              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                              <Text style={styles.generateButtonText}>Ver mi visualización</Text>
+                            </>
+                          ) : (
+                            <>
+                              <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+                              <Text style={styles.generateButtonText}>Generar con mi rostro</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </Card>
+                    );
+                  })}
 
                   {/* Detailed Analysis */}
                   {result.detailed_analysis && (
@@ -238,14 +351,13 @@ export default function AIScanScreen() {
                         <Ionicons name="bulb" size={24} color="#F59E0B" />
                         <Text style={styles.analysisTitle}>Análisis Detallado</Text>
                       </View>
-                      <Text style={styles.analysisText}>
-                        {result.detailed_analysis}
-                      </Text>
+                      <Text style={styles.analysisText}>{result.detailed_analysis}</Text>
                     </Card>
                   )}
                 </>
               )}
 
+              {/* Error State */}
               {result && !result.success && (
                 <Card style={styles.errorCard}>
                   <Ionicons name="alert-circle" size={40} color="#EF4444" />
@@ -266,6 +378,7 @@ export default function AIScanScreen() {
             </View>
           )}
 
+          {/* Tips Card */}
           <Card style={styles.tipsCard}>
             <View style={styles.tipsHeader}>
               <Ionicons name="bulb-outline" size={20} color="#2563EB" />
@@ -286,6 +399,36 @@ export default function AIScanScreen() {
           </Card>
         </View>
       </ScrollView>
+
+      {/* Image Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalCloseArea} 
+            onPress={() => setModalVisible(false)}
+          />
+          <View style={styles.modalContent}>
+            <TouchableOpacity 
+              style={styles.modalCloseButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Ionicons name="close-circle" size={36} color="#FFFFFF" />
+            </TouchableOpacity>
+            {selectedImage && (
+              <Image 
+                source={{ uri: selectedImage }} 
+                style={styles.modalImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -375,13 +518,20 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   imageCard: {
-    padding: 0,
-    overflow: 'hidden',
-    borderRadius: 16,
+    padding: 12,
   },
-  image: {
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  userImage: {
     width: '100%',
-    height: 280,
+    height: 200,
+    borderRadius: 12,
     resizeMode: 'cover',
   },
   analyzingCard: {
@@ -407,58 +557,98 @@ const styles = StyleSheet.create({
   faceShapeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 8,
+    gap: 12,
   },
-  faceShapeTitle: {
-    fontSize: 14,
+  faceShapeLabel: {
+    fontSize: 12,
     color: '#64748B',
     fontWeight: '500',
   },
   faceShapeValue: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1E293B',
-    marginLeft: 38,
   },
-  recommendationsCard: {
-    backgroundColor: '#FFFFFF',
-  },
-  recommendationsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
-  },
-  recommendationsTitle: {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1E293B',
+    marginTop: 8,
+    marginBottom: 4,
   },
-  recommendationItem: {
+  recommendationCard: {
+    backgroundColor: '#FFFFFF',
+  },
+  recHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
     gap: 12,
+    marginBottom: 8,
   },
-  recommendationNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  recNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  recommendationNumberText: {
-    fontSize: 12,
+  recNumberText: {
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  recommendationText: {
+  recName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
     flex: 1,
+  },
+  recDescription: {
     fontSize: 14,
-    color: '#475569',
+    color: '#64748B',
     lineHeight: 20,
+    marginBottom: 12,
+  },
+  referenceImageContainer: {
+    marginBottom: 12,
+  },
+  referenceImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+  },
+  referenceLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  referenceLabelText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  generateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#7C3AED',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  generateButtonSuccess: {
+    backgroundColor: '#10B981',
+  },
+  generateButtonLoading: {
+    backgroundColor: '#A78BFA',
+  },
+  generateButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   analysisCard: {
     backgroundColor: '#FFFBEB',
@@ -528,5 +718,33 @@ const styles = StyleSheet.create({
   tipText: {
     fontSize: 13,
     color: '#15803D',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseArea: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  modalContent: {
+    width: screenWidth - 32,
+    maxHeight: '80%',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: -50,
+    right: 0,
+    zIndex: 10,
+  },
+  modalImage: {
+    width: '100%',
+    height: screenWidth - 32,
+    borderRadius: 12,
   },
 });
