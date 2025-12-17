@@ -119,15 +119,18 @@ backend:
 
   - task: "AI Scan Endpoint with Gemini 2.5 Flash"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Implemented POST /api/ai-scan endpoint that accepts image_base64 and user_id, uses Gemini 2.5 Flash via emergentintegrations library to analyze face and recommend haircuts. Also added GET /api/ai-scans/{user_id} for scan history."
+        - working: true
+          agent: "testing"
+          comment: "✅ PASSED: AI Scan endpoint working correctly. Fixed UserMessage constructor to use file_contents parameter instead of image_contents. API successfully analyzes face images and returns face_shape (ovalada), recommendations array (3 items), and detailed_analysis. All validations passed: API accessible, proper error handling for invalid data, scan history endpoint working. Gemini 2.5 Flash integration functioning properly."
 
 frontend:
   - task: "AI Scan Screen"
