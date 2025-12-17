@@ -434,6 +434,151 @@ async def get_dashboard_stats(shop_id: str):
         logger.error(f"Error getting dashboard stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ==================== AI SCAN (GEMINI) ====================
+
+class AIScanRequest(BaseModel):
+    image_base64: str  # Base64 encoded image
+    user_id: Optional[str] = None
+
+class AIScanResponse(BaseModel):
+    success: bool
+    face_shape: Optional[str] = None
+    recommendations: List[str] = []
+    detailed_analysis: Optional[str] = None
+    error: Optional[str] = None
+
+@api_router.post("/ai-scan", response_model=AIScanResponse)
+async def analyze_face_for_haircut(request: AIScanRequest):
+    """
+    Analyzes a face image using Gemini 2.5 Flash to recommend haircut styles.
+    """
+    try:
+        # Get Emergent LLM key
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            logger.error("EMERGENT_LLM_KEY not found in environment")
+            return AIScanResponse(
+                success=False,
+                error="Configuración de IA no disponible"
+            )
+        
+        # Clean base64 image (remove data URL prefix if present)
+        image_data = request.image_base64
+        if 'base64,' in image_data:
+            image_data = image_data.split('base64,')[1]
+        
+        # Initialize Gemini chat with specific system prompt for haircut recommendations
+        session_id = f"ai_scan_{uuid.uuid4().hex[:8]}"
+        system_message = """Eres un experto estilista y consultor de imagen especializado en cortes de cabello para hombres. 
+Tu tarea es analizar la forma del rostro del cliente y proporcionar recomendaciones personalizadas de cortes de cabello.
+
+Debes responder SIEMPRE en formato estructurado así:
+FORMA_DEL_ROSTRO: [ovalada/redonda/cuadrada/rectangular/corazón/diamante/triangular]
+
+RECOMENDACIONES:
+1. [Nombre del corte] - [Breve descripción de por qué funciona]
+2. [Nombre del corte] - [Breve descripción de por qué funciona]
+3. [Nombre del corte] - [Breve descripción de por qué funciona]
+
+ANÁLISIS_DETALLADO:
+[2-3 oraciones explicando las características faciales y por qué estas recomendaciones son ideales]
+
+CONSEJOS_ADICIONALES:
+[1-2 tips de styling o mantenimiento]"""
+
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=session_id,
+            system_message=system_message
+        ).with_model("gemini", "gemini-2.5-flash")
+        
+        # Create image content
+        image_content = ImageContent(image_base64=image_data)
+        
+        # Create user message with image
+        user_message = UserMessage(
+            text="Analiza esta foto de mi rostro y recomiéndame los mejores estilos de corte de cabello que complementen mis rasgos faciales. Proporciona al menos 3 recomendaciones específicas.",
+            image_contents=[image_content]
+        )
+        
+        # Send message to Gemini
+        response = await chat.send_message(user_message)
+        
+        # Parse the response
+        face_shape = None
+        recommendations = []
+        detailed_analysis = None
+        
+        if response:
+            lines = response.split('\n')
+            current_section = None
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                if line.startswith('FORMA_DEL_ROSTRO:'):
+                    face_shape = line.replace('FORMA_DEL_ROSTRO:', '').strip()
+                elif line.startswith('RECOMENDACIONES:'):
+                    current_section = 'recommendations'
+                elif line.startswith('ANÁLISIS_DETALLADO:'):
+                    current_section = 'analysis'
+                    detailed_analysis = ''
+                elif line.startswith('CONSEJOS_ADICIONALES:'):
+                    current_section = 'tips'
+                elif current_section == 'recommendations' and (line.startswith(('1.', '2.', '3.', '4.', '5.', '-', '•'))):
+                    # Clean the recommendation
+                    rec = line.lstrip('0123456789.-•) ').strip()
+                    if rec:
+                        recommendations.append(rec)
+                elif current_section == 'analysis':
+                    detailed_analysis = (detailed_analysis or '') + line + ' '
+            
+            # If parsing didn't work well, use the full response
+            if not recommendations:
+                recommendations = [response[:500] if len(response) > 500 else response]
+            
+            if detailed_analysis:
+                detailed_analysis = detailed_analysis.strip()
+        
+        logger.info(f"AI Scan completed successfully for session {session_id}")
+        
+        # Store the scan result in database for history
+        if request.user_id:
+            scan_record = {
+                "scan_id": f"scan_{uuid.uuid4().hex[:12]}",
+                "user_id": request.user_id,
+                "face_shape": face_shape,
+                "recommendations": recommendations,
+                "detailed_analysis": detailed_analysis,
+                "created_at": datetime.now(timezone.utc)
+            }
+            await db.ai_scans.insert_one(scan_record)
+        
+        return AIScanResponse(
+            success=True,
+            face_shape=face_shape,
+            recommendations=recommendations,
+            detailed_analysis=detailed_analysis
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in AI scan: {str(e)}")
+        return AIScanResponse(
+            success=False,
+            error=f"Error al analizar la imagen: {str(e)}"
+        )
+
+@api_router.get("/ai-scans/{user_id}")
+async def get_user_scans(user_id: str, limit: int = 10):
+    """Get AI scan history for a user"""
+    scans = await db.ai_scans.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    return scans
+
 # Include router in app
 app.include_router(api_router)
 
