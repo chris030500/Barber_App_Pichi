@@ -103,9 +103,9 @@ export default function ProfileScreen() {
         </View>
 
         <Button
-          title="Cerrar Sesión"
+          title="🚪 Cerrar Sesión"
           onPress={handleLogout}
-          variant="danger"
+          variant="outline"
           size="large"
           style={styles.logoutButton}
         />
