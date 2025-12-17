@@ -1,8 +1,28 @@
-import React from 'react';
-import { Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function BarberLayout() {
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && (!isAuthenticated || (user && user.role !== 'barber'))) {
+      console.log('🔴 BarberLayout: Unauthorized access, redirecting to login');
+      router.replace('/(auth)/login');
+    }
+  }, [isLoading, isAuthenticated, user]);
+
+  if (isLoading || !isAuthenticated || (user && user.role !== 'barber')) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2563EB" />
+      </View>
+    );
+  }
+
   return (
     <Tabs
       screenOptions={{
@@ -58,3 +78,12 @@ export default function BarberLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+});
