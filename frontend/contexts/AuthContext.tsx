@@ -195,33 +195,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         formattedPhone = '+52' + formattedPhone; // Default to Mexico
       }
       
+      console.log('🔵 Formatted phone number:', formattedPhone);
+      
       if (Platform.OS === 'web') {
-        // Create invisible reCAPTCHA
-        const recaptchaContainer = document.getElementById('recaptcha-container');
+        // Create reCAPTCHA container if it doesn't exist
+        let recaptchaContainer = document.getElementById('recaptcha-container');
         if (!recaptchaContainer) {
-          const div = document.createElement('div');
-          div.id = 'recaptcha-container';
-          document.body.appendChild(div);
+          recaptchaContainer = document.createElement('div');
+          recaptchaContainer.id = 'recaptcha-container';
+          recaptchaContainer.style.position = 'fixed';
+          recaptchaContainer.style.bottom = '0';
+          recaptchaContainer.style.right = '0';
+          recaptchaContainer.style.zIndex = '9999';
+          document.body.appendChild(recaptchaContainer);
+          console.log('🔵 reCAPTCHA container created');
         }
         
-        const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        // Clear any existing reCAPTCHA
+        recaptchaContainer.innerHTML = '';
+        
+        console.log('🔵 Creating RecaptchaVerifier...');
+        const recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainer, {
           size: 'invisible',
           callback: () => {
             console.log('✅ reCAPTCHA solved');
           },
+          'expired-callback': () => {
+            console.log('⚠️ reCAPTCHA expired');
+          }
         });
         
+        // Render the reCAPTCHA widget
+        console.log('🔵 Rendering reCAPTCHA...');
+        await recaptchaVerifier.render();
+        console.log('✅ reCAPTCHA rendered');
+        
+        console.log('🔵 Sending SMS to:', formattedPhone);
         const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
         console.log('✅ SMS sent successfully');
         
         setConfirmationResult(result);
-        return result.verificationId;
+        return result.verificationId || 'verification-sent';
       } else {
         throw new Error('La autenticación por teléfono en móvil requiere configuración adicional');
       }
     } catch (error: any) {
       console.error('❌ Phone login error:', error);
-      throw new Error(getErrorMessage(error.code));
+      console.error('❌ Error details:', error.message, error.code);
+      throw new Error(getErrorMessage(error.code) || error.message);
     }
   };
 
