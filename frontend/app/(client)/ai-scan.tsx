@@ -23,7 +23,7 @@ const { width: screenWidth } = Dimensions.get('window');
 
 const API_URL = Constants.expoConfig?.extra?.backendUrl || 
                 process.env.EXPO_PUBLIC_BACKEND_URL || 
-                'https://barberpro-7.preview.emergentagent.com';
+                'https://clipcraft-236.preview.emergentagent.com';
 
 interface HaircutStyle {
   name: string;

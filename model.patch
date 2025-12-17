@@ -302,7 +302,7 @@ index 4445b9c..660f50e 100644
 ----+from typing import Dict, Any
 ----+
 ----+# Get backend URL from frontend .env
-----+BACKEND_URL = "https://barberpro-7.preview.emergentagent.com/api"
+----+BACKEND_URL = "https://clipcraft-236.preview.emergentagent.com/api"
 ----+
 ----+class ImageEditingTester:
 ----+    def __init__(self):
@@ -574,7 +574,7 @@ index 4445b9c..660f50e 100644
 ---+import subprocess
 ---+
 ---+# Backend URL
----+BACKEND_URL = "https://barberpro-7.preview.emergentagent.com/api"
+---+BACKEND_URL = "https://clipcraft-236.preview.emergentagent.com/api"
 ---+
 ---+def download_test_image():
 ---+    """Download a sample face image and convert to base64"""
