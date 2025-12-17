@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -10,23 +10,32 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  const handleGoogleLogin = () => {
-    Alert.alert(
-      'Próximamente',
-      'Google Sign-In estará disponible en la próxima actualización'
-    );
+  const handleGoogleLogin = async () => {
+    if (Platform.OS !== 'web') {
+      Alert.alert('Información', 'Google Sign-In funciona mejor en la versión web');
+      return;
+    }
+    
+    setGoogleLoading(true);
+    try {
+      await loginWithGoogle();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      router.replace('/');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Error al iniciar sesión con Google');
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handlePhoneLogin = () => {
-    Alert.alert(
-      'Próximamente',
-      'La autenticación con teléfono estará disponible próximamente'
-    );
+    router.push('/(auth)/phone-login');
   };
 
   const handleEmailLogin = async () => {
