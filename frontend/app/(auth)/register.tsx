@@ -20,31 +20,41 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
+    console.log('🔵 handleRegister called with:', { name, email, password: '***', confirmPassword: '***', role });
+    
     // Validations
     if (!name || !email || !password || !confirmPassword) {
+      console.log('❌ Validation failed: Missing fields');
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
     if (password !== confirmPassword) {
+      console.log('❌ Validation failed: Passwords do not match');
       Alert.alert('Error', 'Las contraseñas no coinciden');
       return;
     }
 
     if (password.length < 6) {
+      console.log('❌ Validation failed: Password too short');
       Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
+      console.log('❌ Validation failed: Invalid email format');
       Alert.alert('Error', 'Email inválido');
       return;
     }
 
+    console.log('✅ All validations passed, starting registration...');
     setLoading(true);
     try {
+      console.log('🔵 Calling register function...');
       await register(email.trim(), password, name.trim(), role);
+      console.log('✅ Register function completed successfully!');
+      
       Alert.alert(
         'Éxito',
         'Cuenta creada exitosamente',
@@ -52,15 +62,17 @@ export default function RegisterScreen() {
           {
             text: 'OK',
             onPress: () => {
-              // Navigation will be handled by AuthContext
+              console.log('✅ Alert dismissed, navigation should happen via AuthContext');
             },
           },
         ]
       );
     } catch (error: any) {
+      console.error('❌ Registration failed:', error);
       Alert.alert('Error', error.message || 'Error al crear la cuenta');
     } finally {
       setLoading(false);
+      console.log('🔵 Registration process ended');
     }
   };
 
