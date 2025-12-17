@@ -21,8 +21,12 @@ export default function ProfileScreen() {
           text: 'Cerrar sesión',
           style: 'destructive',
           onPress: async () => {
-            await logout();
-            router.replace('/(auth)/welcome');
+            try {
+              await logout();
+              // La redirección se maneja automáticamente por el AuthContext
+            } catch (error) {
+              console.error('Error al cerrar sesión:', error);
+            }
           },
         },
       ]
