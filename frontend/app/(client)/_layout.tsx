@@ -55,6 +55,12 @@ export default function ClientLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="booking"
+        options={{
+          href: null, // Hide from tab bar - accessed via navigation
+        }}
+      />
     </Tabs>
   );
 }
