@@ -153,10 +153,18 @@ export default function AppointmentsScreen() {
     );
   };
 
+  const router = useRouter();
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Mis Citas</Text>
+        <Button
+          title="+ Nueva"
+          onPress={() => router.push('/(client)/booking')}
+          variant="primary"
+          size="small"
+        />
       </View>
 
       <View style={styles.filters}>
