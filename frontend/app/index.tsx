@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Index() {
+  const hasRedirected = useRef(false);
   const { user, isLoading } = useAuth();
   const hasRedirected = useRef(false);
 
@@ -24,6 +25,9 @@ export default function Index() {
   }, [isLoading, user]);
 
   if (redirectPath) {
+    if (hasRedirected.current) return null;
+
+    hasRedirected.current = true;
     return <Redirect href={redirectPath} />;
   }
 
