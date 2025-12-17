@@ -11,27 +11,25 @@ export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const handleLogout = async () => {
-    console.log('🔴 handleLogout called');
+  const handleLogout = () => {
+    console.log('🔴 LOGOUT: Button pressed!');
+    
+    // Set loading state
     setLoggingOut(true);
     
-    try {
-      console.log('🔴 Calling logout...');
-      await logout();
-      console.log('✅ Logout completed');
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    }
-    
-    // Always force redirect regardless of success/failure
-    console.log('🔴 Forcing redirect to login...');
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.localStorage.clear();
-      window.sessionStorage.clear();
-      window.location.href = '/login';
-    } else {
-      router.replace('/(auth)/login');
-    }
+    // Execute logout asynchronously
+    logout()
+      .then(() => {
+        console.log('✅ LOGOUT: Firebase signOut successful');
+      })
+      .catch((error) => {
+        console.error('❌ LOGOUT: Error during logout:', error);
+      })
+      .finally(() => {
+        console.log('🔴 LOGOUT: Redirecting to login...');
+        // Force navigation after logout attempt
+        router.replace('/(auth)/login');
+      });
   };
 
   return (
