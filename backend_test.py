@@ -289,65 +289,102 @@ class BackendTester:
             return False
 
     def test_generate_haircut_image_endpoint(self, test_image_base64: str):
-        """Test Generate Haircut Image endpoint"""
-        try:
-            request_data = {
-                "user_image_base64": test_image_base64,
-                "haircut_style": "fade"
-            }
-            
-            print("🎨 Testing Generate Haircut Image endpoint (may take up to 60 seconds)...")
-            
-            response = self.session.post(
-                f"{self.base_url}/generate-haircut-image",
-                json=request_data,
-                headers={"Content-Type": "application/json"},
-                timeout=90  # Extended timeout as specified in review request
-            )
-            
-            print(f"Response status: {response.status_code}")
-            
-            if response.status_code == 200:
-                data = response.json()
-                print(f"Response keys: {list(data.keys())}")
+        """Test IMPROVED Generate Haircut Image endpoint with facial analysis"""
+        print("🎨 Testing IMPROVED Generate Haircut Image endpoint")
+        print("   This endpoint now: 1) Analyzes facial features with Gemini, 2) Generates personalized image")
+        
+        test_cases = [
+            {"style": "fade", "name": "Fade haircut"},
+            {"style": "undercut", "name": "Undercut haircut"},
+            {"style": "pompadour", "name": "Pompadour haircut"}
+        ]
+        
+        all_passed = True
+        
+        for test_case in test_cases:
+            try:
+                request_data = {
+                    "user_image_base64": test_image_base64,
+                    "haircut_style": test_case["style"]
+                }
                 
-                # Validate response structure
-                required_fields = ["success", "generated_image_base64", "style_applied"]
-                missing_fields = [field for field in required_fields if field not in data]
+                print(f"\n🧪 Testing {test_case['name']} (may take up to 120 seconds for 2 AI calls)...")
                 
-                if missing_fields:
-                    self.log_test("Generate Haircut Image Response Structure", False, f"Missing fields: {missing_fields}")
-                    return False
+                response = self.session.post(
+                    f"{self.base_url}/generate-haircut-image",
+                    json=request_data,
+                    headers={"Content-Type": "application/json"},
+                    timeout=120  # 120 seconds as specified in review request for 2 AI calls
+                )
                 
-                # Check success field
-                if not data.get("success"):
-                    error_msg = data.get("error", "Unknown error")
-                    self.log_test("Generate Haircut Image Success", False, f"API returned success=false: {error_msg}")
-                    return False
+                print(f"Response status: {response.status_code}")
                 
-                # Validate generated_image_base64
-                generated_image = data.get("generated_image_base64")
-                if not generated_image or not isinstance(generated_image, str):
-                    self.log_test("Generate Haircut Image Base64", False, f"Invalid generated_image_base64: {type(generated_image)}")
-                    return False
-                
-                # Validate style_applied
-                style_applied = data.get("style_applied")
-                if not style_applied or style_applied != "fade":
-                    self.log_test("Generate Haircut Image Style", False, f"Expected style 'fade', got: {style_applied}")
-                    return False
-                
-                self.log_test("Generate Haircut Image Endpoint Success", True, 
-                    f"Generated image length: {len(generated_image)} chars, Style: {style_applied}")
-                return True
-                
-            else:
-                self.log_test("Generate Haircut Image HTTP Response", False, f"HTTP {response.status_code}: {response.text}")
-                return False
-                
-        except Exception as e:
-            self.log_test("Generate Haircut Image Endpoint", False, f"Request error: {str(e)}")
-            return False
+                if response.status_code == 200:
+                    data = response.json()
+                    print(f"Response keys: {list(data.keys())}")
+                    
+                    # Validate response structure - NOW INCLUDING facial_description (NEW FIELD)
+                    required_fields = ["success", "generated_image_base64", "style_applied", "facial_description"]
+                    missing_fields = [field for field in required_fields if field not in data]
+                    
+                    if missing_fields:
+                        self.log_test(f"Generate Haircut Image Response Structure ({test_case['style']})", False, f"Missing fields: {missing_fields}")
+                        all_passed = False
+                        continue
+                    
+                    # Check success field
+                    if not data.get("success"):
+                        error_msg = data.get("error", "Unknown error")
+                        self.log_test(f"Generate Haircut Image Success ({test_case['style']})", False, f"API returned success=false: {error_msg}")
+                        all_passed = False
+                        continue
+                    
+                    # Validate generated_image_base64 (non-empty base64 string)
+                    generated_image = data.get("generated_image_base64")
+                    if not generated_image or not isinstance(generated_image, str):
+                        self.log_test(f"Generate Haircut Image Base64 ({test_case['style']})", False, f"Invalid generated_image_base64: {type(generated_image)}")
+                        all_passed = False
+                        continue
+                    
+                    if len(generated_image) < 1000:  # Should be substantial base64 image
+                        self.log_test(f"Generate Haircut Image Base64 Size ({test_case['style']})", False, f"Base64 too short: {len(generated_image)} chars")
+                        all_passed = False
+                        continue
+                    
+                    # Validate style_applied (should match requested style)
+                    style_applied = data.get("style_applied")
+                    if not style_applied or style_applied.lower() != test_case["style"].lower():
+                        self.log_test(f"Generate Haircut Image Style ({test_case['style']})", False, f"Expected style '{test_case['style']}', got: {style_applied}")
+                        all_passed = False
+                        continue
+                    
+                    # Validate facial_description (NEW FIELD - KEY REQUIREMENT)
+                    facial_description = data.get("facial_description")
+                    if not facial_description or not isinstance(facial_description, str):
+                        self.log_test(f"Generate Haircut Image Facial Description ({test_case['style']})", False, f"Invalid facial_description: {type(facial_description)}")
+                        all_passed = False
+                        continue
+                    
+                    if len(facial_description.strip()) < 20:  # Should be meaningful description
+                        self.log_test(f"Generate Haircut Image Facial Description Length ({test_case['style']})", False, f"Facial description too short: {len(facial_description)} chars")
+                        all_passed = False
+                        continue
+                    
+                    # All validations passed for this test case
+                    self.log_test(f"Generate Haircut Image Endpoint Success ({test_case['style']})", True, 
+                        f"Generated image: {len(generated_image)} chars, Style: {style_applied}, Facial desc: {len(facial_description)} chars")
+                    
+                    print(f"✅ Facial description preview: {facial_description[:100]}...")
+                    
+                else:
+                    self.log_test(f"Generate Haircut Image HTTP Response ({test_case['style']})", False, f"HTTP {response.status_code}: {response.text}")
+                    all_passed = False
+                    
+            except Exception as e:
+                self.log_test(f"Generate Haircut Image Endpoint ({test_case['style']})", False, f"Request error: {str(e)}")
+                all_passed = False
+        
+        return all_passed
 
     def run_all_tests(self):
         """Run all backend tests"""
