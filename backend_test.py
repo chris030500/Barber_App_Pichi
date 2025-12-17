@@ -289,9 +289,10 @@ class BackendTester:
             return False
 
     def test_generate_haircut_image_endpoint(self, test_image_base64: str):
-        """Test IMPROVED Generate Haircut Image endpoint with facial analysis"""
-        print("🎨 Testing IMPROVED Generate Haircut Image endpoint")
-        print("   This endpoint now: 1) Analyzes facial features with Gemini, 2) Generates personalized image")
+        """Test UPDATED Generate Haircut Image endpoint with IMAGE EDITING functionality"""
+        print("🎨 Testing UPDATED Generate Haircut Image endpoint")
+        print("   This endpoint now: 1) Uses OpenAI's images/edits API to EDIT user's photo directly")
+        print("   2) Preserves user's face and only changes hairstyle, 3) Falls back to generation if edit fails")
         
         test_cases = [
             {"style": "fade", "name": "Fade haircut"},
