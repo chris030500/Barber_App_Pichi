@@ -103,20 +103,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       console.log('🔵 Login: Starting login process...', { email });
-      setIsLoading(true);
       
       console.log('🔵 Login: Calling Firebase signInWithEmailAndPassword...');
       await signInWithEmailAndPassword(auth, email, password);
       console.log('✅ Login: Firebase authentication successful!');
-      console.log('🔵 Login: Waiting for onAuthStateChanged to trigger...');
+      console.log('🔵 Login: onAuthStateChanged will handle the rest and set loading to false');
       // User state will be updated by onAuthStateChanged
+      // DON'T set isLoading to false here - let onAuthStateChanged do it
     } catch (error: any) {
       console.error('❌ Login error:', error);
       console.error('❌ Login error code:', error.code);
+      setIsLoading(false); // Only set to false on error
       throw new Error(getErrorMessage(error.code));
-    } finally {
-      setIsLoading(false);
-      console.log('🔵 Login: Process ended, isLoading set to false');
     }
   };
 
