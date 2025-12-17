@@ -191,7 +191,7 @@ frontend:
     implemented: true
     working: false
     file: "/app/frontend/app/(client)/profile.tsx"
-    stuck_count: 1
+    stuck_count: 2
     priority: "high"
     needs_retesting: false
     status_history:
@@ -201,6 +201,9 @@ frontend:
         - working: false
           agent: "testing"
           comment: "❌ CONFIRMED BUG: Logout functionality is NOT working. Successfully tested on existing session - found logout button '🚪 Cerrar Sesión' on profile page, clicked it, but user remains on the same profile page (URL: /profile). No confirmation dialog appeared, and no redirect occurred. The logout button does nothing as reported by user. This is a critical authentication issue."
+        - working: false
+          agent: "testing"
+          comment: "❌ CRITICAL BUG IDENTIFIED: Logout button works partially but session protection is broken. DETAILED ANALYSIS: 1) ✅ Logout button responds to clicks and triggers logout function, 2) ✅ Firebase signOut() executes successfully (confirmed in console logs), 3) ✅ User state is cleared from AuthContext, 4) ✅ Initial redirect to /login works, 5) ❌ CRITICAL: No route protection on (client) routes - users can directly access /profile after logout. ROOT CAUSE: /app/frontend/app/(client)/_layout.tsx has no authentication guards. After logout, users can bypass authentication by directly navigating to protected routes. SECURITY RISK: Unauthenticated users can access all client pages."
 
 metadata:
   created_by: "main_agent"
