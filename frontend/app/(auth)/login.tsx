@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -17,15 +17,15 @@ export default function LoginScreen() {
 
   const handleGoogleLogin = () => {
     Alert.alert(
-      'Firebase en configuración',
-      'La autenticación con Firebase se activará cuando proporciones las credenciales'
+      'Próximamente',
+      'Google Sign-In estará disponible en la próxima actualización'
     );
   };
 
   const handlePhoneLogin = () => {
     Alert.alert(
-      'Firebase en configuración',
-      'La autenticación con teléfono se activará cuando proporciones las credenciales de Firebase'
+      'Próximamente',
+      'La autenticación con teléfono estará disponible próximamente'
     );
   };
 
@@ -35,9 +35,15 @@ export default function LoginScreen() {
       return;
     }
 
+    if (password.length < 6) {
+      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email.trim(), password);
+      // Navigation will be handled by AuthContext
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al iniciar sesión');
     } finally {
@@ -87,6 +93,7 @@ export default function LoginScreen() {
             placeholder="tu@email.com"
             keyboardType="email-address"
             autoCapitalize="none"
+            autoCorrect={false}
           />
 
           <Input
@@ -106,9 +113,13 @@ export default function LoginScreen() {
             style={styles.button}
           />
 
-          <Text style={styles.note}>
-            🔧 Esperando configuración de Firebase
-          </Text>
+          <Button
+            title="¿No tienes cuenta? Regístrate"
+            onPress={() => router.push('/(auth)/register')}
+            variant="outline"
+            size="medium"
+            style={styles.registerButton}
+          />
         </View>
 
         <Button
@@ -173,11 +184,8 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 8,
   },
-  note: {
-    textAlign: 'center',
-    fontSize: 14,
-    color: '#F59E0B',
-    marginTop: 16,
+  registerButton: {
+    marginTop: 8,
   },
   backButton: {
     marginTop: 24,
