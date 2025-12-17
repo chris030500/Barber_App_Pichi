@@ -53,7 +53,6 @@ export default function LoginScreen() {
     try {
       await loginWithGoogle();
       await new Promise(resolve => setTimeout(resolve, 1000));
-      router.replace('/');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al iniciar sesión con Google');
     } finally {
@@ -80,7 +79,6 @@ export default function LoginScreen() {
     try {
       await login(email.trim(), password);
       await new Promise(resolve => setTimeout(resolve, 750));
-      router.replace('/');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al iniciar sesión');
       setLoading(false);
