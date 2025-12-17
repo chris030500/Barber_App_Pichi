@@ -214,6 +214,141 @@ class BackendTester:
             self.log_test("AI Scan History Endpoint", False, f"Request error: {str(e)}")
             return False
 
+    def test_ai_scan_v2_endpoint(self, test_image_base64: str):
+        """Test AI Scan V2 endpoint with reference images"""
+        try:
+            request_data = {
+                "image_base64": test_image_base64,
+                "user_id": "test_user_v2_scan"
+            }
+            
+            print("🤖 Testing AI Scan V2 endpoint with reference images...")
+            
+            response = self.session.post(
+                f"{self.base_url}/ai-scan-v2",
+                json=request_data,
+                headers={"Content-Type": "application/json"},
+                timeout=60
+            )
+            
+            print(f"Response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                print(f"Response data: {json.dumps(data, indent=2)}")
+                
+                # Validate response structure
+                required_fields = ["success", "face_shape", "recommendations", "detailed_analysis"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("AI Scan V2 Response Structure", False, f"Missing fields: {missing_fields}")
+                    return False
+                
+                # Check success field
+                if not data.get("success"):
+                    error_msg = data.get("error", "Unknown error")
+                    self.log_test("AI Scan V2 Success", False, f"API returned success=false: {error_msg}")
+                    return False
+                
+                # Validate recommendations structure (should be list of objects with reference_image)
+                recommendations = data.get("recommendations", [])
+                if not recommendations or not isinstance(recommendations, list):
+                    self.log_test("AI Scan V2 Recommendations", False, f"Invalid recommendations: {recommendations}")
+                    return False
+                
+                # Check each recommendation has required fields including reference_image
+                for i, rec in enumerate(recommendations):
+                    if not isinstance(rec, dict):
+                        self.log_test("AI Scan V2 Recommendation Structure", False, f"Recommendation {i} is not an object: {rec}")
+                        return False
+                    
+                    required_rec_fields = ["name", "description", "reference_image"]
+                    missing_rec_fields = [field for field in required_rec_fields if field not in rec]
+                    
+                    if missing_rec_fields:
+                        self.log_test("AI Scan V2 Recommendation Fields", False, f"Recommendation {i} missing fields: {missing_rec_fields}")
+                        return False
+                    
+                    # Validate reference_image is a URL
+                    ref_image = rec.get("reference_image")
+                    if not ref_image or not isinstance(ref_image, str) or not ref_image.startswith("http"):
+                        self.log_test("AI Scan V2 Reference Image", False, f"Invalid reference_image in recommendation {i}: {ref_image}")
+                        return False
+                
+                self.log_test("AI Scan V2 Endpoint Success", True, 
+                    f"Face shape: {data.get('face_shape')}, Recommendations with reference images: {len(recommendations)}")
+                return True
+                
+            else:
+                self.log_test("AI Scan V2 HTTP Response", False, f"HTTP {response.status_code}: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_test("AI Scan V2 Endpoint", False, f"Request error: {str(e)}")
+            return False
+
+    def test_generate_haircut_image_endpoint(self, test_image_base64: str):
+        """Test Generate Haircut Image endpoint"""
+        try:
+            request_data = {
+                "user_image_base64": test_image_base64,
+                "haircut_style": "fade"
+            }
+            
+            print("🎨 Testing Generate Haircut Image endpoint (may take up to 60 seconds)...")
+            
+            response = self.session.post(
+                f"{self.base_url}/generate-haircut-image",
+                json=request_data,
+                headers={"Content-Type": "application/json"},
+                timeout=90  # Extended timeout as specified in review request
+            )
+            
+            print(f"Response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                print(f"Response keys: {list(data.keys())}")
+                
+                # Validate response structure
+                required_fields = ["success", "generated_image_base64", "style_applied"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("Generate Haircut Image Response Structure", False, f"Missing fields: {missing_fields}")
+                    return False
+                
+                # Check success field
+                if not data.get("success"):
+                    error_msg = data.get("error", "Unknown error")
+                    self.log_test("Generate Haircut Image Success", False, f"API returned success=false: {error_msg}")
+                    return False
+                
+                # Validate generated_image_base64
+                generated_image = data.get("generated_image_base64")
+                if not generated_image or not isinstance(generated_image, str):
+                    self.log_test("Generate Haircut Image Base64", False, f"Invalid generated_image_base64: {type(generated_image)}")
+                    return False
+                
+                # Validate style_applied
+                style_applied = data.get("style_applied")
+                if not style_applied or style_applied != "fade":
+                    self.log_test("Generate Haircut Image Style", False, f"Expected style 'fade', got: {style_applied}")
+                    return False
+                
+                self.log_test("Generate Haircut Image Endpoint Success", True, 
+                    f"Generated image length: {len(generated_image)} chars, Style: {style_applied}")
+                return True
+                
+            else:
+                self.log_test("Generate Haircut Image HTTP Response", False, f"HTTP {response.status_code}: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Generate Haircut Image Endpoint", False, f"Request error: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run all backend tests"""
         print("🚀 Starting Backend API Tests for Barbershop Management App")
