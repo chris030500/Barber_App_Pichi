@@ -39,6 +39,11 @@ Guía rápida para levantar el backend (FastAPI) y el frontend (Expo) en tu comp
    - El backend quedará en http://localhost:8000.
    - Mongo expone el puerto 27017 por si quieres conectarte desde tu máquina.
 
+### Nota sobre la dependencia `emergentintegrations`
+- El paquete oficial es privado y **no está en PyPI**, lo que puede romper instalaciones automatizadas.
+- Para que el contenedor compile sin acceso al paquete, se incluyó un **shim** mínimo en `backend/emergentintegrations/` que deja las importaciones operativas pero devuelve mensajes de función no disponible.
+- Si necesitas las funciones de IA reales, instala el wheel oficial durante el build (por ejemplo: `pip install /ruta/al/emergentintegrations-<ver>.whl`) o sustituye el shim por tu cliente.
+
 ## Frontend (Expo/React Native)
 1. Instala dependencias:
    ```bash
