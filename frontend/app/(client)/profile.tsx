@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Image, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Card from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function ProfileScreen() {
@@ -12,27 +11,25 @@ export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const handleLogout = async () => {
-    console.log('🔴 handleLogout called');
+  const handleLogout = () => {
+    console.log('🔴 LOGOUT: Button pressed!');
+    
+    // Set loading state
     setLoggingOut(true);
     
-    try {
-      console.log('🔴 Calling logout...');
-      await logout();
-      console.log('✅ Logout completed');
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    }
-    
-    // Always force redirect regardless of success/failure
-    console.log('🔴 Forcing redirect to login...');
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.localStorage.clear();
-      window.sessionStorage.clear();
-      window.location.href = '/login';
-    } else {
-      router.replace('/(auth)/login');
-    }
+    // Execute logout asynchronously
+    logout()
+      .then(() => {
+        console.log('✅ LOGOUT: Firebase signOut successful');
+      })
+      .catch((error) => {
+        console.error('❌ LOGOUT: Error during logout:', error);
+      })
+      .finally(() => {
+        console.log('🔴 LOGOUT: Redirecting to login...');
+        // Force navigation after logout attempt
+        router.replace('/(auth)/login');
+      });
   };
 
   return (
@@ -104,15 +101,18 @@ export default function ProfileScreen() {
           </Card>
         </View>
 
-        <Button
-          title={loggingOut ? "Cerrando sesión..." : "🚪 Cerrar Sesión"}
+        <TouchableOpacity
+          style={[styles.logoutButton, loggingOut && styles.logoutButtonDisabled]}
           onPress={handleLogout}
-          variant="outline"
-          size="large"
-          loading={loggingOut}
           disabled={loggingOut}
-          style={styles.logoutButton}
-        />
+          activeOpacity={0.7}
+        >
+          {loggingOut ? (
+            <ActivityIndicator color="#DC2626" size="small" />
+          ) : (
+            <Text style={styles.logoutButtonText}>🚪 Cerrar Sesión</Text>
+          )}
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -203,5 +203,22 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     marginTop: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#DC2626',
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 56,
+  },
+  logoutButtonDisabled: {
+    opacity: 0.6,
+  },
+  logoutButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#DC2626',
   },
 });
