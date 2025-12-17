@@ -1,10 +1,10 @@
-version: "3.9"
-
 services:
   backend:
     build: ./backend
-    env_file:
-      - ./backend/.env
+    environment:
+      - MONGO_URL=${MONGO_URL:-mongodb://mongo:27017}
+      - DB_NAME=${DB_NAME:-barbershop_db}
+      - EMERGENT_LLM_KEY=${EMERGENT_LLM_KEY:-}
     ports:
       - "8000:8000"
     depends_on:

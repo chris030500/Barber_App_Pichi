@@ -16,7 +16,7 @@ Guía rápida para levantar el backend (FastAPI) y el frontend (Expo) en tu comp
    source .venv/bin/activate  # En Windows: .venv\\Scripts\\activate
    pip install -r requirements.txt
    ```
-2. Crea `backend/.env` con tus variables (ejemplo):
+2. Crea `backend/.env` con tus variables (puedes partir de `backend/.env.example`):
    ```bash
    MONGO_URL="mongodb://localhost:27017"
    DB_NAME="barbershop_db"
@@ -28,13 +28,11 @@ Guía rápida para levantar el backend (FastAPI) y el frontend (Expo) en tu comp
    ```
 
 ### Levantar backend con Docker
-1. Crea `backend/.env` con las variables necesarias (usa la URL interna de Mongo en Docker):
+1. Opcional: copia las variables de ejemplo y personalízalas (útil si quieres cambiar valores por defecto). No es obligatorio para levantar el stack.
    ```bash
-   MONGO_URL="mongodb://mongo:27017"
-   DB_NAME="barbershop_db"
-   EMERGENT_LLM_KEY="tu-clave-opcional"
+   cp backend/.env.example backend/.env  # Ajusta valores si lo necesitas
    ```
-2. Construye y levanta los contenedores (backend + MongoDB):
+2. Construye y levanta los contenedores (backend + MongoDB). El `docker-compose.yml` ya define valores por defecto (`mongodb://mongo:27017` y base `barbershop_db`). Si quieres sobreescribirlos, exporta las variables (`MONGO_URL`, `DB_NAME`, `EMERGENT_LLM_KEY`) antes de ejecutar el comando.
    ```bash
    docker compose up --build
    ```
