@@ -131,27 +131,33 @@ backend:
 
   - task: "AI Scan V2 with Reference Images"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Implemented POST /api/ai-scan-v2 endpoint that returns haircut recommendations with reference images (URLs from Unsplash). Each recommendation includes name, description, and reference_image URL."
+        - working: true
+          agent: "testing"
+          comment: "✅ PASSED: AI Scan V2 endpoint working correctly. Returns face shape analysis and 3 recommendations with reference images. Each recommendation has name, description, and valid reference_image URL from Unsplash. Response structure validated successfully."
 
   - task: "Generate Haircut Image Endpoint"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Implemented POST /api/generate-haircut-image endpoint that uses OpenAI gpt-image-1 to generate personalized haircut visualizations. Takes user_image_base64 and haircut_style as input."
+        - working: true
+          agent: "testing"
+          comment: "✅ PASSED: Generate Haircut Image endpoint working correctly. Successfully generates AI images using OpenAI gpt-image-1. Returns base64 encoded image (2.8MB) and correct style_applied field. Endpoint handles 60+ second processing time properly."
 
 frontend:
   - task: "AI Scan Screen with Reference & Generated Images"
