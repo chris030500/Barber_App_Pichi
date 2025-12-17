@@ -195,33 +195,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         formattedPhone = '+52' + formattedPhone; // Default to Mexico
       }
       
+      console.log('🔵 Formatted phone number:', formattedPhone);
+      
       if (Platform.OS === 'web') {
-        // Create invisible reCAPTCHA
-        const recaptchaContainer = document.getElementById('recaptcha-container');
-        if (!recaptchaContainer) {
-          const div = document.createElement('div');
-          div.id = 'recaptcha-container';
-          document.body.appendChild(div);
+        // Remove any existing reCAPTCHA container first
+        const existingContainer = document.getElementById('recaptcha-container');
+        if (existingContainer) {
+          existingContainer.remove();
         }
         
+        // Create a fresh container
+        const recaptchaContainer = document.createElement('div');
+        recaptchaContainer.id = 'recaptcha-container';
+        document.body.appendChild(recaptchaContainer);
+        console.log('🔵 Fresh reCAPTCHA container created');
+        
+        // Small delay to ensure DOM is ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        console.log('🔵 Creating RecaptchaVerifier...');
         const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'invisible',
-          callback: () => {
-            console.log('✅ reCAPTCHA solved');
+          size: 'normal', // Use normal size for better compatibility
+          callback: (response: any) => {
+            console.log('✅ reCAPTCHA solved:', response);
           },
+          'expired-callback': () => {
+            console.log('⚠️ reCAPTCHA expired');
+          }
         });
         
+        console.log('🔵 Sending SMS to:', formattedPhone);
         const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
         console.log('✅ SMS sent successfully');
         
+        // Clean up reCAPTCHA after success
+        try {
+          recaptchaVerifier.clear();
+          const container = document.getElementById('recaptcha-container');
+          if (container) container.remove();
+        } catch (e) {
+          console.log('Cleanup error (non-critical):', e);
+        }
+        
         setConfirmationResult(result);
-        return result.verificationId;
+        return result.verificationId || 'verification-sent';
       } else {
         throw new Error('La autenticación por teléfono en móvil requiere configuración adicional');
       }
     } catch (error: any) {
       console.error('❌ Phone login error:', error);
-      throw new Error(getErrorMessage(error.code));
+      console.error('❌ Error details:', error.message, error.code);
+      
+      // Clean up on error
+      try {
+        const container = document.getElementById('recaptcha-container');
+        if (container) container.remove();
+      } catch (e) {}
+      
+      throw new Error(getErrorMessage(error.code) || error.message);
     }
   };
 

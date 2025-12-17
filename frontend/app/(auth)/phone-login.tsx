@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,25 +35,25 @@ export default function PhoneLoginScreen() {
   };
 
   const handleSendCode = async () => {
-    if (!phoneNumber || phoneNumber.length < 10) {
-      Alert.alert('Error', 'Ingresa un número de teléfono válido');
+    // Remove any non-digit characters
+    const cleanNumber = phoneNumber.replace(/\D/g, '');
+    
+    if (!cleanNumber || cleanNumber.length < 10) {
+      Alert.alert('Error', 'Ingresa un número de teléfono válido (10 dígitos)');
       return;
     }
 
     setLoading(true);
     try {
-      // Format phone number with country code
-      let formattedPhone = phoneNumber.replace(/\D/g, '');
-      if (!formattedPhone.startsWith('+')) {
-        formattedPhone = '+52' + formattedPhone; // Default Mexico
-      }
-      
-      const verId = await loginWithPhone(formattedPhone);
+      // Pass just the clean number, AuthContext will add +52
+      console.log('📱 Sending code to:', cleanNumber);
+      const verId = await loginWithPhone(cleanNumber);
       setVerificationId(verId);
       setStep('code');
       Alert.alert('Código Enviado', 'Te hemos enviado un SMS con el código de verificación');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Error al enviar el código');
+      console.error('Phone login error:', error);
+      Alert.alert('Error', error.message || 'Error al enviar el código. Verifica tu número.');
     } finally {
       setLoading(false);
     }
