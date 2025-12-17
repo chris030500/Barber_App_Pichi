@@ -739,43 +739,68 @@ class GenerateHaircutImageResponse(BaseModel):
 # Emergent proxy URL for API calls
 EMERGENT_PROXY_URL = "https://integrations.emergentagent.com/llm"
 
+def create_hair_mask(image_bytes: bytes) -> bytes:
+    """
+    Create a mask that only allows editing the top portion of the image (hair area).
+    The mask has transparent areas where editing is allowed, and opaque areas to preserve.
+    """
+    from PIL import Image
+    import io
+    
+    # Load the original image to get dimensions
+    img = Image.open(io.BytesIO(image_bytes))
+    width, height = img.size
+    
+    # Create a mask image (RGBA)
+    # Transparent (alpha=0) = area that CAN be edited
+    # Opaque (alpha=255) = area that is PROTECTED
+    mask = Image.new('RGBA', (width, height), (0, 0, 0, 255))  # Start fully opaque (protected)
+    
+    # Make the top 40% of the image transparent (editable - hair area)
+    # This covers the hair region while protecting the face below
+    hair_region_height = int(height * 0.40)
+    
+    for y in range(hair_region_height):
+        for x in range(width):
+            # Create a gradient transition for more natural results
+            if y < hair_region_height * 0.7:
+                # Fully transparent (editable)
+                mask.putpixel((x, y), (0, 0, 0, 0))
+            else:
+                # Gradual transition
+                alpha = int(255 * (y - hair_region_height * 0.7) / (hair_region_height * 0.3))
+                mask.putpixel((x, y), (0, 0, 0, alpha))
+    
+    # Save mask to bytes
+    mask_buffer = io.BytesIO()
+    mask.save(mask_buffer, format='PNG')
+    mask_buffer.seek(0)
+    return mask_buffer.getvalue()
+
 async def edit_image_with_haircut(api_key: str, image_base64: str, haircut_style: str) -> Optional[bytes]:
     """
     Use OpenAI's image edit API to modify the user's photo with a new hairstyle.
-    This preserves the user's face and only changes the hair.
+    Uses a mask to ONLY allow editing the hair area, preserving the face completely.
     """
     try:
         # Decode base64 to bytes
         image_bytes = base64.b64decode(image_base64)
         
-        # Prepare the edit prompt - STRICTLY only changing hair, nothing else
-        edit_prompt = f"""STRICT INSTRUCTION: Modify ONLY the hair/hairstyle in this photo to show a {haircut_style} haircut.
-
-ABSOLUTELY DO NOT CHANGE:
-- Face shape, facial structure
-- Eyes, eyebrows, eyelashes
-- Nose shape and size
-- Mouth, lips, teeth
-- Ears
-- Skin color, texture, or any skin details
-- Facial hair (beard, mustache) if present
-- Expression
-- Neck, shoulders, clothing
-- Background
-- Lighting on the face
-
-ONLY CHANGE:
-- The hair on top of the head
-- The hairstyle/haircut style to {haircut_style}
-- Hair length and texture as needed for the {haircut_style} style
-
-The result must look like the EXACT SAME PERSON with a new {haircut_style} haircut. Do not alter ANY facial features whatsoever."""
+        # Create a mask that only allows editing the hair area
+        logger.info("Creating hair mask to protect facial features...")
+        mask_bytes = create_hair_mask(image_bytes)
+        
+        # Simple prompt focused only on hair
+        edit_prompt = f"""Change the hairstyle to a {haircut_style} haircut. 
+Style the hair professionally as seen in a barbershop.
+Only modify the hair, keep everything else exactly the same."""
 
         # Use httpx for async request to OpenAI API via Emergent proxy
         async with httpx.AsyncClient(timeout=120.0) as client:
-            # Prepare multipart form data
+            # Prepare multipart form data WITH MASK
             files = {
                 'image': ('photo.png', BytesIO(image_bytes), 'image/png'),
+                'mask': ('mask.png', BytesIO(mask_bytes), 'image/png'),
             }
             data = {
                 'model': 'gpt-image-1',
@@ -794,7 +819,7 @@ The result must look like the EXACT SAME PERSON with a new {haircut_style} hairc
             else:
                 api_url = "https://api.openai.com/v1/images/edits"
             
-            logger.info(f"Calling image edit API at: {api_url}")
+            logger.info(f"Calling image edit API with mask at: {api_url}")
             
             response = await client.post(
                 api_url,
