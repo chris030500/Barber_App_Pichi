@@ -164,6 +164,9 @@ backend:
         - working: true
           agent: "testing"
           comment: "✅ PASSED: UPDATED Generate Haircut Image endpoint with IMAGE EDITING functionality tested successfully. Endpoint now uses OpenAI's images/edits API to EDIT user's photo directly, preserving face and only changing hairstyle. Falls back to generation if edit fails. Backend logs confirm: 'Editing user photo' and 'Image edit failed, falling back to generation' messages present. Returns success=true, generated_image_base64 (1.9MB+), style_applied=fade. 120-second timeout handled properly for image editing process."
+        - working: true
+          agent: "testing"
+          comment: "✅ PASSED: IMAGE EDITING ENDPOINT VERIFICATION COMPLETE. Confirmed POST /api/generate-haircut-image uses OpenAI images/edits API via Emergent proxy at https://integrations.emergentagent.com/llm/v1/images/edits. Backend logs show 'Calling image edit API at', 'Image edit API response status: 200', and 'Successfully edited photo' messages. Endpoint EDITS user's photo directly (not generating new person), preserving facial features and only changing hairstyle. Tested with undercut style: success=true, generated_image_base64 (1.89MB), style_applied=undercut. 120-second timeout handled properly. All image editing functionality working as specified."
 
 frontend:
   - task: "AI Scan Screen with Reference & Generated Images"
