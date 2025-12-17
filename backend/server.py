@@ -13,6 +13,8 @@ import logging
 import uuid
 import base64
 import asyncio
+import httpx
+from io import BytesIO
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
