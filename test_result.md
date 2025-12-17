@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the AI Scan endpoint for haircut recommendations using Gemini 2.5 Flash. The endpoint POST /api/ai-scan should accept a base64 image and return face shape analysis and haircut recommendations."
+user_problem_statement: "Test the enhanced AI Scan with reference images and personalized image generation using OpenAI gpt-image-1"
 
 backend:
   - task: "User Authentication Endpoint"
@@ -115,7 +115,7 @@ backend:
     status_history:
         - working: true
           agent: "testing"
-          comment: "✅ PASSED: User endpoint `/api/users?email=borresp2000@gmail.com` working correctly. Returns exactly 1 user with email: borresp2000@gmail.com, role: client, user_id: user_6110f9b5f90c. All validations passed successfully."
+          comment: "✅ PASSED: User endpoint working correctly."
 
   - task: "AI Scan Endpoint with Gemini 2.5 Flash"
     implemented: true
@@ -125,15 +125,36 @@ backend:
     priority: "high"
     needs_retesting: false
     status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Implemented POST /api/ai-scan endpoint that accepts image_base64 and user_id, uses Gemini 2.5 Flash via emergentintegrations library to analyze face and recommend haircuts. Also added GET /api/ai-scans/{user_id} for scan history."
         - working: true
           agent: "testing"
-          comment: "✅ PASSED: AI Scan endpoint working correctly. Fixed UserMessage constructor to use file_contents parameter instead of image_contents. API successfully analyzes face images and returns face_shape (ovalada), recommendations array (3 items), and detailed_analysis. All validations passed: API accessible, proper error handling for invalid data, scan history endpoint working. Gemini 2.5 Flash integration functioning properly."
+          comment: "✅ PASSED: AI Scan endpoint working correctly with Gemini 2.5 Flash."
+
+  - task: "AI Scan V2 with Reference Images"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implemented POST /api/ai-scan-v2 endpoint that returns haircut recommendations with reference images (URLs from Unsplash). Each recommendation includes name, description, and reference_image URL."
+
+  - task: "Generate Haircut Image Endpoint"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implemented POST /api/generate-haircut-image endpoint that uses OpenAI gpt-image-1 to generate personalized haircut visualizations. Takes user_image_base64 and haircut_style as input."
 
 frontend:
-  - task: "AI Scan Screen"
+  - task: "AI Scan Screen with Reference & Generated Images"
     implemented: true
     working: "NA"
     file: "/app/frontend/app/(client)/ai-scan.tsx"
@@ -143,22 +164,22 @@ frontend:
     status_history:
         - working: "NA"
           agent: "main"
-          comment: "Updated frontend to use the real /api/ai-scan endpoint instead of mock data. Features camera capture, gallery selection, and displays AI recommendations."
+          comment: "Updated frontend to show reference images for each recommendation and button to generate personalized image with user's face using AI."
 
 metadata:
   created_by: "main_agent"
-  version: "1.1"
-  test_sequence: 2
+  version: "1.2"
+  test_sequence: 3
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "AI Scan V2 with Reference Images"
+    - "Generate Haircut Image Endpoint"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
-      message: "Implemented AI Scan feature with Gemini 2.5 Flash integration. Please test the POST /api/ai-scan endpoint with a valid base64 face image. Read /app/image_testing.md for image handling rules. The endpoint should return success:true with face_shape, recommendations array, and detailed_analysis."
-    - agent: "testing"
-      message: "✅ AI Scan endpoint testing completed successfully! Fixed critical bug in UserMessage constructor (changed image_contents to file_contents parameter). All tests passed: API accessible, face analysis working with Gemini 2.5 Flash, proper error handling, and scan history endpoint functional. The endpoint correctly analyzes face images and returns structured recommendations in Spanish. Ready for production use."
+      message: "Added new endpoints: 1) POST /api/ai-scan-v2 returns recommendations with reference images. 2) POST /api/generate-haircut-image generates AI images using OpenAI gpt-image-1. Test both endpoints. Note: Image generation may take up to 60 seconds."
