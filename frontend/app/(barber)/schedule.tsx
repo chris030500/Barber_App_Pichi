@@ -78,6 +78,51 @@ export default function BarberScheduleScreen() {
     }
   };
 
+  const completeAppointment = async (appointmentId: string) => {
+    Alert.alert(
+      'Completar Cita',
+      '¿Marcar esta cita como completada?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Completar',
+          onPress: async () => {
+            try {
+              await axios.put(`${BACKEND_URL}/api/appointments/${appointmentId}`, { status: 'completed' });
+              setAppointments(appointments.filter(a => a.appointment_id !== appointmentId));
+              Alert.alert('Éxito', 'Cita marcada como completada');
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo actualizar la cita');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const cancelAppointment = async (appointmentId: string) => {
+    Alert.alert(
+      'Cancelar Cita',
+      '¿Estás seguro de cancelar esta cita?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await axios.put(`${BACKEND_URL}/api/appointments/${appointmentId}`, { status: 'cancelled' });
+              setAppointments(appointments.filter(a => a.appointment_id !== appointmentId));
+              Alert.alert('Éxito', 'Cita cancelada');
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo cancelar la cita');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'available':
