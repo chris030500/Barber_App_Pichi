@@ -11,6 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 export default function PhoneLoginScreen() {
   const router = useRouter();
   const { loginWithPhone, verifyPhoneCode, user, isLoading } = useAuth();
+  const hasRedirected = useRef(false);
 
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -18,9 +19,12 @@ export default function PhoneLoginScreen() {
   const [verificationId, setVerificationId] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (!isLoading && user) {
-    return <Redirect href="/" />;
-  }
+  useEffect(() => {
+    if (!isLoading && user && !hasRedirected.current) {
+      hasRedirected.current = true;
+      router.replace('/');
+    }
+  }, [isLoading, router, user]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
