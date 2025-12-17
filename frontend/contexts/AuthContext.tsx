@@ -198,41 +198,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('🔵 Formatted phone number:', formattedPhone);
       
       if (Platform.OS === 'web') {
-        // Create reCAPTCHA container if it doesn't exist
-        let recaptchaContainer = document.getElementById('recaptcha-container');
-        if (!recaptchaContainer) {
-          recaptchaContainer = document.createElement('div');
-          recaptchaContainer.id = 'recaptcha-container';
-          recaptchaContainer.style.position = 'fixed';
-          recaptchaContainer.style.bottom = '0';
-          recaptchaContainer.style.right = '0';
-          recaptchaContainer.style.zIndex = '9999';
-          document.body.appendChild(recaptchaContainer);
-          console.log('🔵 reCAPTCHA container created');
+        // Remove any existing reCAPTCHA container first
+        const existingContainer = document.getElementById('recaptcha-container');
+        if (existingContainer) {
+          existingContainer.remove();
         }
         
-        // Clear any existing reCAPTCHA
-        recaptchaContainer.innerHTML = '';
+        // Create a fresh container
+        const recaptchaContainer = document.createElement('div');
+        recaptchaContainer.id = 'recaptcha-container';
+        document.body.appendChild(recaptchaContainer);
+        console.log('🔵 Fresh reCAPTCHA container created');
+        
+        // Small delay to ensure DOM is ready
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         console.log('🔵 Creating RecaptchaVerifier...');
-        const recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainer, {
-          size: 'invisible',
-          callback: () => {
-            console.log('✅ reCAPTCHA solved');
+        const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          size: 'normal', // Use normal size for better compatibility
+          callback: (response: any) => {
+            console.log('✅ reCAPTCHA solved:', response);
           },
           'expired-callback': () => {
             console.log('⚠️ reCAPTCHA expired');
           }
         });
         
-        // Render the reCAPTCHA widget
-        console.log('🔵 Rendering reCAPTCHA...');
-        await recaptchaVerifier.render();
-        console.log('✅ reCAPTCHA rendered');
-        
         console.log('🔵 Sending SMS to:', formattedPhone);
         const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
         console.log('✅ SMS sent successfully');
+        
+        // Clean up reCAPTCHA after success
+        try {
+          recaptchaVerifier.clear();
+          const container = document.getElementById('recaptcha-container');
+          if (container) container.remove();
+        } catch (e) {
+          console.log('Cleanup error (non-critical):', e);
+        }
         
         setConfirmationResult(result);
         return result.verificationId || 'verification-sent';
@@ -242,6 +245,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       console.error('❌ Phone login error:', error);
       console.error('❌ Error details:', error.message, error.code);
+      
+      // Clean up on error
+      try {
+        const container = document.getElementById('recaptcha-container');
+        if (container) container.remove();
+      } catch (e) {}
+      
       throw new Error(getErrorMessage(error.code) || error.message);
     }
   };
