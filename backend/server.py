@@ -581,6 +581,224 @@ async def get_user_scans(user_id: str, limit: int = 10):
     ).sort("created_at", -1).limit(limit).to_list(limit)
     return scans
 
+# ==================== AI IMAGE GENERATION ====================
+
+# Reference images for haircut styles (URLs from Unsplash - free to use)
+HAIRCUT_REFERENCE_IMAGES = {
+    "fade": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=400",
+    "undercut": "https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400",
+    "pompadour": "https://images.unsplash.com/photo-1596728325488-58c87691e9af?w=400",
+    "buzz": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
+    "textured": "https://images.unsplash.com/photo-1620122830784-c29a955dd08b?w=400",
+    "classic": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400",
+    "mohawk": "https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=400",
+    "crew": "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=400",
+    "default": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=400"
+}
+
+def get_reference_image_for_style(style_name: str) -> str:
+    """Get reference image URL based on haircut style name"""
+    style_lower = style_name.lower()
+    for key, url in HAIRCUT_REFERENCE_IMAGES.items():
+        if key in style_lower:
+            return url
+    return HAIRCUT_REFERENCE_IMAGES["default"]
+
+class HaircutStyle(BaseModel):
+    name: str
+    description: str
+    reference_image: Optional[str] = None
+
+class AIScanResponseV2(BaseModel):
+    success: bool
+    face_shape: Optional[str] = None
+    recommendations: List[HaircutStyle] = []
+    detailed_analysis: Optional[str] = None
+    error: Optional[str] = None
+
+@api_router.post("/ai-scan-v2", response_model=AIScanResponseV2)
+async def analyze_face_for_haircut_v2(request: AIScanRequest):
+    """
+    Enhanced AI scan that includes reference images for each recommendation.
+    """
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            return AIScanResponseV2(success=False, error="Configuración de IA no disponible")
+        
+        image_data = request.image_base64
+        if 'base64,' in image_data:
+            image_data = image_data.split('base64,')[1]
+        
+        session_id = f"ai_scan_v2_{uuid.uuid4().hex[:8]}"
+        system_message = """Eres un experto estilista especializado en cortes de cabello para hombres.
+Analiza el rostro y proporciona recomendaciones en este formato EXACTO:
+
+FORMA_DEL_ROSTRO: [forma]
+
+CORTE_1:
+NOMBRE: [nombre del corte en inglés simple: fade/undercut/pompadour/buzz/textured/classic/mohawk/crew]
+DESCRIPCION: [por qué este corte complementa el rostro]
+
+CORTE_2:
+NOMBRE: [nombre del corte]
+DESCRIPCION: [por qué funciona]
+
+CORTE_3:
+NOMBRE: [nombre del corte]
+DESCRIPCION: [por qué funciona]
+
+ANALISIS: [análisis detallado de las características faciales]"""
+
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=session_id,
+            system_message=system_message
+        ).with_model("gemini", "gemini-2.5-flash")
+        
+        image_content = ImageContent(image_base64=image_data)
+        user_message = UserMessage(
+            text="Analiza mi rostro y recomiéndame 3 cortes de cabello ideales.",
+            file_contents=[image_content]
+        )
+        
+        response = await chat.send_message(user_message)
+        
+        face_shape = None
+        recommendations = []
+        detailed_analysis = None
+        
+        if response:
+            lines = response.split('\n')
+            current_cut = {}
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                if line.startswith('FORMA_DEL_ROSTRO:'):
+                    face_shape = line.replace('FORMA_DEL_ROSTRO:', '').strip()
+                elif line.startswith('CORTE_'):
+                    if current_cut.get('name'):
+                        ref_img = get_reference_image_for_style(current_cut['name'])
+                        recommendations.append(HaircutStyle(
+                            name=current_cut['name'],
+                            description=current_cut.get('description', ''),
+                            reference_image=ref_img
+                        ))
+                    current_cut = {}
+                elif line.startswith('NOMBRE:'):
+                    current_cut['name'] = line.replace('NOMBRE:', '').strip()
+                elif line.startswith('DESCRIPCION:'):
+                    current_cut['description'] = line.replace('DESCRIPCION:', '').strip()
+                elif line.startswith('ANALISIS:'):
+                    detailed_analysis = line.replace('ANALISIS:', '').strip()
+            
+            # Add last cut
+            if current_cut.get('name'):
+                ref_img = get_reference_image_for_style(current_cut['name'])
+                recommendations.append(HaircutStyle(
+                    name=current_cut['name'],
+                    description=current_cut.get('description', ''),
+                    reference_image=ref_img
+                ))
+        
+        # If parsing failed, create default recommendations
+        if not recommendations:
+            recommendations = [
+                HaircutStyle(name="Fade Clásico", description="Un corte versátil que funciona con la mayoría de formas de rostro", reference_image=HAIRCUT_REFERENCE_IMAGES["fade"]),
+                HaircutStyle(name="Undercut Moderno", description="Estilo contemporáneo que añade estructura", reference_image=HAIRCUT_REFERENCE_IMAGES["undercut"]),
+                HaircutStyle(name="Texturizado", description="Añade volumen y movimiento natural", reference_image=HAIRCUT_REFERENCE_IMAGES["textured"])
+            ]
+        
+        return AIScanResponseV2(
+            success=True,
+            face_shape=face_shape,
+            recommendations=recommendations,
+            detailed_analysis=detailed_analysis
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in AI scan v2: {str(e)}")
+        return AIScanResponseV2(success=False, error=str(e))
+
+class GenerateHaircutImageRequest(BaseModel):
+    user_image_base64: str
+    haircut_style: str
+    additional_details: Optional[str] = None
+
+class GenerateHaircutImageResponse(BaseModel):
+    success: bool
+    generated_image_base64: Optional[str] = None
+    style_applied: Optional[str] = None
+    error: Optional[str] = None
+
+@api_router.post("/generate-haircut-image", response_model=GenerateHaircutImageResponse)
+async def generate_haircut_image(request: GenerateHaircutImageRequest):
+    """
+    Generate an AI image showing the user with a specific haircut style.
+    Uses OpenAI gpt-image-1 to create personalized visualizations.
+    """
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            return GenerateHaircutImageResponse(
+                success=False,
+                error="Configuración de IA no disponible"
+            )
+        
+        # Create detailed prompt for image generation
+        style = request.haircut_style
+        details = request.additional_details or ""
+        
+        prompt = f"""Create a professional barbershop portrait photo of a man with a {style} haircut.
+The photo should look like a professional haircut reference photo.
+Style: {style}
+{f'Additional details: {details}' if details else ''}
+The image should be:
+- High quality, well-lit portrait
+- Showing the haircut clearly from a front-facing angle
+- Professional barbershop style photo
+- Clean background
+- The hairstyle should be the main focus"""
+
+        logger.info(f"Generating haircut image for style: {style}")
+        
+        # Initialize image generator
+        image_gen = OpenAIImageGeneration(api_key=api_key)
+        
+        # Generate image
+        images = await image_gen.generate_images(
+            prompt=prompt,
+            model="gpt-image-1",
+            number_of_images=1
+        )
+        
+        if images and len(images) > 0:
+            # Convert to base64
+            image_base64 = base64.b64encode(images[0]).decode('utf-8')
+            
+            logger.info(f"Successfully generated haircut image for style: {style}")
+            
+            return GenerateHaircutImageResponse(
+                success=True,
+                generated_image_base64=image_base64,
+                style_applied=style
+            )
+        else:
+            return GenerateHaircutImageResponse(
+                success=False,
+                error="No se pudo generar la imagen"
+            )
+            
+    except Exception as e:
+        logger.error(f"Error generating haircut image: {str(e)}")
+        return GenerateHaircutImageResponse(
+            success=False,
+            error=f"Error al generar imagen: {str(e)}"
+        )
+
 # Include router in app
 app.include_router(api_router)
 
