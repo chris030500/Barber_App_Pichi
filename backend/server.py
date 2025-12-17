@@ -817,7 +817,7 @@ Output the edited image."""
 async def generate_haircut_image(request: GenerateHaircutImageRequest):
     """
     Edit the user's photo to show them with a specific haircut style.
-    Uses OpenAI's image edit API to preserve facial features and only change the hair.
+    Uses Gemini Nano Banana to preserve facial features and only change the hair.
     """
     try:
         api_key = os.environ.get('EMERGENT_LLM_KEY')
@@ -834,49 +834,24 @@ async def generate_haircut_image(request: GenerateHaircutImageRequest):
         
         style = request.haircut_style
         
-        logger.info(f"Editing user photo with haircut style: {style}")
+        logger.info(f"Editing user photo with Gemini for haircut style: {style}")
         
-        # Try to edit the image directly
-        edited_image = await edit_image_with_haircut(api_key, image_data, style)
+        # Use Gemini Nano Banana for better facial preservation
+        edited_image_base64 = await edit_image_with_haircut_gemini(api_key, image_data, style)
         
-        if edited_image:
-            image_base64_result = base64.b64encode(edited_image).decode('utf-8')
-            
-            logger.info(f"Successfully edited photo with haircut style: {style}")
+        if edited_image_base64:
+            logger.info(f"Successfully edited photo with Gemini for style: {style}")
             
             return GenerateHaircutImageResponse(
                 success=True,
-                generated_image_base64=image_base64_result,
+                generated_image_base64=edited_image_base64,
                 style_applied=style
             )
         else:
-            # Fallback: If edit fails, try generation with detailed description
-            logger.warning(f"Image edit failed, falling back to generation for style: {style}")
-            
-            # Use generation as fallback
-            image_gen = OpenAIImageGeneration(api_key=api_key)
-            
-            prompt = f"""Professional barbershop portrait photo of a man with a {style} haircut.
-High quality, well-lit, front-facing angle. Focus on showing the {style} hairstyle clearly.
-Professional barbershop style photo with clean background."""
-            
-            images = await image_gen.generate_images(
-                prompt=prompt,
-                model="gpt-image-1",
-                number_of_images=1
-            )
-            
-            if images and len(images) > 0:
-                image_base64_result = base64.b64encode(images[0]).decode('utf-8')
-                return GenerateHaircutImageResponse(
-                    success=True,
-                    generated_image_base64=image_base64_result,
-                    style_applied=style
-                )
-            
+            logger.error(f"Gemini image edit failed for style: {style}")
             return GenerateHaircutImageResponse(
                 success=False,
-                error="No se pudo editar ni generar la imagen"
+                error="No se pudo editar la imagen. Intenta con otra foto."
             )
             
     except Exception as e:
