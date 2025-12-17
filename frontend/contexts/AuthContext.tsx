@@ -2,6 +2,21 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Constants from 'expo-constants';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithCredential,
+  PhoneAuthProvider,
+  signInWithPhoneNumber,
+  RecaptchaVerifier,
+  User as FirebaseUser,
+  updateProfile,
+} from 'firebase/auth';
+import { auth } from '../config/firebase';
+import { Platform } from 'react-native';
 
 const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -18,10 +33,13 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  firebaseUser: FirebaseUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, role: string) => Promise<void>;
+  loginWithPhone: (phoneNumber: string) => Promise<void>;
+  verifyPhoneCode: (verificationId: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
 }
@@ -30,56 +48,122 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    checkAuthStatus();
+    // Listen to Firebase auth state changes
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      setFirebaseUser(fbUser);
+      
+      if (fbUser) {
+        // User is signed in, fetch user data from backend
+        try {
+          const response = await axios.get(`${BACKEND_URL}/api/users?email=${fbUser.email}`);
+          
+          if (response.data && response.data.length > 0) {
+            setUser(response.data[0]);
+          } else {
+            // Create user in backend if doesn't exist
+            const newUserResponse = await axios.post(`${BACKEND_URL}/api/users`, {
+              email: fbUser.email,
+              name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuario',
+              role: 'client',
+              phone: fbUser.phoneNumber || undefined,
+            });
+            setUser(newUserResponse.data);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        }
+      } else {
+        setUser(null);
+      }
+      
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const checkAuthStatus = async () => {
+  const login = async (email: string, password: string) => {
     try {
-      const token = await AsyncStorage.getItem('auth_token');
-      if (token) {
-        const response = await axios.get(`${BACKEND_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setUser(response.data);
-      }
-    } catch (error) {
-      console.error('Error checking auth status:', error);
-      await AsyncStorage.removeItem('auth_token');
+      setIsLoading(true);
+      await signInWithEmailAndPassword(auth, email, password);
+      // User state will be updated by onAuthStateChanged
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw new Error(getErrorMessage(error.code));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const register = async (email: string, password: string, name: string, role: string) => {
     try {
-      // Placeholder for Firebase Authentication
-      // Will be implemented when Firebase config is provided
-      console.log('Login with Firebase - pending configuration');
-      throw new Error('Firebase not configured yet');
-    } catch (error) {
-      throw error;
+      setIsLoading(true);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Update profile with name
+      await updateProfile(userCredential.user, {
+        displayName: name,
+      });
+
+      // Create user in backend
+      const response = await axios.post(`${BACKEND_URL}/api/users`, {
+        email: email,
+        name: name,
+        role: role,
+      });
+      
+      setUser(response.data);
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      throw new Error(getErrorMessage(error.code));
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const register = async (email: string, password: string, name: string, role: string) => {
+  const loginWithPhone = async (phoneNumber: string) => {
     try {
-      // Placeholder for Firebase Authentication
-      console.log('Register with Firebase - pending configuration');
-      throw new Error('Firebase not configured yet');
-    } catch (error) {
-      throw error;
+      if (Platform.OS === 'web') {
+        // For web, use reCAPTCHA
+        const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          size: 'invisible',
+        });
+        const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+        // Store verification ID for later verification
+        await AsyncStorage.setItem('verificationId', confirmationResult.verificationId);
+      } else {
+        // For native, phone auth requires additional setup
+        // This is a placeholder - full implementation would need React Native Firebase
+        throw new Error('Phone authentication on mobile requires additional setup');
+      }
+    } catch (error: any) {
+      console.error('Phone login error:', error);
+      throw new Error(getErrorMessage(error.code));
+    }
+  };
+
+  const verifyPhoneCode = async (verificationId: string, code: string) => {
+    try {
+      const credential = PhoneAuthProvider.credential(verificationId, code);
+      await signInWithCredential(auth, credential);
+    } catch (error: any) {
+      console.error('Verification error:', error);
+      throw new Error(getErrorMessage(error.code));
     }
   };
 
   const logout = async () => {
     try {
-      await AsyncStorage.removeItem('auth_token');
+      await firebaseSignOut(auth);
       setUser(null);
+      setFirebaseUser(null);
     } catch (error) {
       console.error('Error logging out:', error);
+      throw error;
     }
   };
 
@@ -89,13 +173,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const getErrorMessage = (errorCode: string): string => {
+    switch (errorCode) {
+      case 'auth/invalid-email':
+        return 'Correo electrónico inválido';
+      case 'auth/user-disabled':
+        return 'Usuario deshabilitado';
+      case 'auth/user-not-found':
+        return 'Usuario no encontrado';
+      case 'auth/wrong-password':
+        return 'Contraseña incorrecta';
+      case 'auth/email-already-in-use':
+        return 'El correo ya está en uso';
+      case 'auth/weak-password':
+        return 'La contraseña es muy débil';
+      case 'auth/invalid-phone-number':
+        return 'Número de teléfono inválido';
+      case 'auth/invalid-verification-code':
+        return 'Código de verificación inválido';
+      case 'auth/too-many-requests':
+        return 'Demasiados intentos. Intenta más tarde';
+      default:
+        return 'Error de autenticación. Intenta nuevamente';
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
+      firebaseUser,
       isLoading,
-      isAuthenticated: !!user,
+      isAuthenticated: !!user && !!firebaseUser,
       login,
       register,
+      loginWithPhone,
+      verifyPhoneCode,
       logout,
       updateUser
     }}>
