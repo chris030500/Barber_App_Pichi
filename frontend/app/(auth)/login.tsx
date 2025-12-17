@@ -84,10 +84,12 @@ export default function LoginScreen() {
 
         <View style={styles.form}>
           <Button
-            title="Continuar con Google"
+            title="🔵 Continuar con Google"
             onPress={handleGoogleLogin}
             variant="outline"
             size="large"
+            loading={googleLoading}
+            disabled={googleLoading}
             style={styles.socialButton}
           />
 
