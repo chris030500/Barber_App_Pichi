@@ -359,23 +359,17 @@ class BackendTester:
                         all_passed = False
                         continue
                     
-                    # Validate facial_description (NEW FIELD - KEY REQUIREMENT)
+                    # For the updated endpoint, facial_description is optional (may not be present in image editing mode)
                     facial_description = data.get("facial_description")
-                    if not facial_description or not isinstance(facial_description, str):
-                        self.log_test(f"Generate Haircut Image Facial Description ({test_case['style']})", False, f"Invalid facial_description: {type(facial_description)}")
-                        all_passed = False
-                        continue
-                    
-                    if len(facial_description.strip()) < 20:  # Should be meaningful description
-                        self.log_test(f"Generate Haircut Image Facial Description Length ({test_case['style']})", False, f"Facial description too short: {len(facial_description)} chars")
-                        all_passed = False
-                        continue
+                    if facial_description and isinstance(facial_description, str) and len(facial_description.strip()) >= 20:
+                        print(f"✅ Facial description preview: {facial_description[:100]}...")
+                        facial_desc_info = f", Facial desc: {len(facial_description)} chars"
+                    else:
+                        facial_desc_info = ", No facial description (image editing mode)"
                     
                     # All validations passed for this test case
                     self.log_test(f"Generate Haircut Image Endpoint Success ({test_case['style']})", True, 
-                        f"Generated image: {len(generated_image)} chars, Style: {style_applied}, Facial desc: {len(facial_description)} chars")
-                    
-                    print(f"✅ Facial description preview: {facial_description[:100]}...")
+                        f"Generated image: {len(generated_image)} chars, Style: {style_applied}{facial_desc_info}")
                     
                 else:
                     self.log_test(f"Generate Haircut Image HTTP Response ({test_case['style']})", False, f"HTTP {response.status_code}: {response.text}")
