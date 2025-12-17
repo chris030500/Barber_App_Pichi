@@ -33,18 +33,27 @@ export default function ProfileScreen() {
     try {
       console.log('🔴 Cerrando sesión...');
       await logout();
-      console.log('✅ Sesión cerrada');
+      console.log('✅ Sesión cerrada, forzando recarga...');
       
-      // Force navigation to login
+      // Force full page reload to clear all state
       if (Platform.OS === 'web') {
-        window.location.href = '/login';
+        // Clear any cached data
+        if (typeof window !== 'undefined') {
+          window.localStorage.clear();
+          window.sessionStorage.clear();
+          // Force reload to login page
+          window.location.replace('/login');
+        }
       } else {
         router.replace('/(auth)/login');
       }
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
       setLoggingOut(false);
-      Alert.alert('Error', 'No se pudo cerrar sesión');
+      // Even on error, try to redirect
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.location.replace('/login');
+      }
     }
   };
 
