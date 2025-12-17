@@ -11,12 +11,20 @@ import { useAuth } from '../../contexts/AuthContext';
 export default function PhoneLoginScreen() {
   const router = useRouter();
   const { loginWithPhone, verifyPhoneCode } = useAuth();
-  
+
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [verificationId, setVerificationId] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
 
   const handleSendCode = async () => {
     if (!phoneNumber || phoneNumber.length < 10) {
@@ -156,7 +164,7 @@ export default function PhoneLoginScreen() {
 
         <Button
           title="← Volver al inicio de sesión"
-          onPress={() => router.back()}
+          onPress={handleBack}
           variant="outline"
           size="medium"
           style={styles.backButton}

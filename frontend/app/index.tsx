@@ -1,41 +1,34 @@
-import React, { useEffect } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Index() {
-  const router = useRouter();
+  const redirectSentRef = useRef(false);
   const { user, isLoading } = useAuth();
 
-  useEffect(() => {
-    console.log('🔵 Index: Navigation check', { 
-      user: user ? `${user.name} (${user.role})` : 'null', 
-      isLoading 
-    });
-    
-    if (!isLoading) {
-      if (user) {
-        console.log('✅ Index: User authenticated, navigating to role screen...', { role: user.role });
-        // Navigate based on user role
-        switch (user.role) {
-          case 'client':
-            router.replace('/(client)/home');
-            break;
-          case 'barber':
-            router.replace('/(barber)/schedule');
-            break;
-          case 'admin':
-            router.replace('/(admin)/dashboard');
-            break;
-          default:
-            router.replace('/(auth)/welcome');
-        }
-      } else {
-        console.log('🔵 Index: No user, navigating to welcome');
-        router.replace('/(auth)/welcome');
-      }
+  const redirectPath = useMemo(() => {
+    if (isLoading) return null;
+    if (!user) return '/(auth)/welcome';
+
+    switch (user.role) {
+      case 'client':
+        return '/(client)/home';
+      case 'barber':
+        return '/(barber)/schedule';
+      case 'admin':
+        return '/(admin)/dashboard';
+      default:
+        return '/(auth)/welcome';
     }
-  }, [user, isLoading]);
+  }, [isLoading, user]);
+
+  if (redirectPath) {
+    if (redirectSentRef.current) return null;
+
+    redirectSentRef.current = true;
+    return <Redirect href={redirectPath} />;
+  }
 
   return (
     <View style={styles.container}>
