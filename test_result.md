@@ -187,6 +187,18 @@ frontend:
           agent: "main"
           comment: "Updated frontend to show reference images for each recommendation and button to generate personalized image with user's face using AI."
 
+  - task: "Logout Functionality"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(client)/profile.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "testing"
+          comment: "User reports that clicking the logout button does nothing - the session doesn't close and they stay on the same page. Need to test logout functionality in profile screen."
+
 metadata:
   created_by: "main_agent"
   version: "1.2"
