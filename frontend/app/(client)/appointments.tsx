@@ -219,6 +219,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: '#FFFFFF',
