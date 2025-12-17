@@ -739,125 +739,79 @@ class GenerateHaircutImageResponse(BaseModel):
 # Emergent proxy URL for API calls
 EMERGENT_PROXY_URL = "https://integrations.emergentagent.com/llm"
 
-def create_hair_mask(image_bytes: bytes) -> bytes:
+async def edit_image_with_haircut_gemini(api_key: str, image_base64: str, haircut_style: str) -> Optional[str]:
     """
-    Create a mask that only allows editing the top portion of the image (hair area).
-    The mask has transparent areas where editing is allowed, and opaque areas to preserve.
-    """
-    from PIL import Image
-    import io
-    
-    # Load the original image to get dimensions
-    img = Image.open(io.BytesIO(image_bytes))
-    width, height = img.size
-    
-    # Create a mask image (RGBA)
-    # Transparent (alpha=0) = area that CAN be edited
-    # Opaque (alpha=255) = area that is PROTECTED
-    mask = Image.new('RGBA', (width, height), (0, 0, 0, 255))  # Start fully opaque (protected)
-    
-    # Make the top 40% of the image transparent (editable - hair area)
-    # This covers the hair region while protecting the face below
-    hair_region_height = int(height * 0.40)
-    
-    for y in range(hair_region_height):
-        for x in range(width):
-            # Create a gradient transition for more natural results
-            if y < hair_region_height * 0.7:
-                # Fully transparent (editable)
-                mask.putpixel((x, y), (0, 0, 0, 0))
-            else:
-                # Gradual transition
-                alpha = int(255 * (y - hair_region_height * 0.7) / (hair_region_height * 0.3))
-                mask.putpixel((x, y), (0, 0, 0, alpha))
-    
-    # Save mask to bytes
-    mask_buffer = io.BytesIO()
-    mask.save(mask_buffer, format='PNG')
-    mask_buffer.seek(0)
-    return mask_buffer.getvalue()
-
-async def edit_image_with_haircut(api_key: str, image_base64: str, haircut_style: str) -> Optional[bytes]:
-    """
-    Use OpenAI's image edit API to modify the user's photo with a new hairstyle.
-    Uses a mask to ONLY allow editing the hair area, preserving the face completely.
+    Use Gemini Nano Banana to edit the user's photo with a new hairstyle.
+    Gemini is better at preserving facial features while only changing the hair.
+    Returns base64 encoded image string.
     """
     try:
-        # Decode base64 to bytes
-        image_bytes = base64.b64decode(image_base64)
+        session_id = f"hair_edit_{uuid.uuid4().hex[:8]}"
         
-        # Create a mask that only allows editing the hair area
-        logger.info("Creating hair mask to protect facial features...")
-        mask_bytes = create_hair_mask(image_bytes)
-        
-        # Simple prompt focused only on hair
-        edit_prompt = f"""Change the hairstyle to a {haircut_style} haircut. 
-Style the hair professionally as seen in a barbershop.
-Only modify the hair, keep everything else exactly the same."""
+        # Very strict prompt to ONLY modify hair
+        system_message = """You are a professional photo editor specializing in hairstyle visualization.
+Your task is to edit photos to show different hairstyles.
 
-        # Use httpx for async request to OpenAI API via Emergent proxy
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            # Prepare multipart form data WITH MASK
-            files = {
-                'image': ('photo.png', BytesIO(image_bytes), 'image/png'),
-                'mask': ('mask.png', BytesIO(mask_bytes), 'image/png'),
-            }
-            data = {
-                'model': 'gpt-image-1',
-                'prompt': edit_prompt,
-                'n': '1',
-                'size': '1024x1024',
-            }
-            
-            headers = {
-                'Authorization': f'Bearer {api_key}',
-            }
-            
-            # Determine the correct API endpoint
-            if api_key.startswith("sk-emergent-"):
-                api_url = f"{EMERGENT_PROXY_URL}/v1/images/edits"
-            else:
-                api_url = "https://api.openai.com/v1/images/edits"
-            
-            logger.info(f"Calling image edit API with mask at: {api_url}")
-            
-            response = await client.post(
-                api_url,
-                files=files,
-                data=data,
-                headers=headers
-            )
-            
-            logger.info(f"Image edit API response status: {response.status_code}")
-            
-            if response.status_code == 200:
-                result = response.json()
+CRITICAL RULES:
+- You MUST preserve the person's face EXACTLY as it is
+- DO NOT modify: eyes, nose, mouth, ears, skin, facial structure, expression, face shape
+- ONLY modify the HAIR on top of the head
+- The result must look like the EXACT same person with a new haircut
+- Keep the same lighting, background, and photo quality"""
+
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=session_id,
+            system_message=system_message
+        ).with_model("gemini", "gemini-2.5-flash-preview-05-20").with_params(modalities=["image", "text"])
+        
+        # Create image content from base64
+        image_content = ImageContent(image_base64=image_base64)
+        
+        # Strict edit prompt
+        edit_prompt = f"""Edit this photo to show a {haircut_style} haircut/hairstyle.
+
+STRICT INSTRUCTIONS:
+1. Keep the face, head shape, and all facial features EXACTLY the same - do not change ANYTHING about the face
+2. Keep the skin tone, lighting, and background EXACTLY the same
+3. ONLY change the hair/hairstyle to a {haircut_style} style
+4. The person in the output must be IDENTICAL to the input, just with different hair
+5. Do NOT regenerate or modify the face in any way
+6. Do NOT change the head shape or size
+7. Make the {haircut_style} haircut look natural and professionally styled
+
+Output the edited image."""
+
+        user_message = UserMessage(
+            text=edit_prompt,
+            file_contents=[image_content]
+        )
+        
+        logger.info(f"Calling Gemini Nano Banana for haircut style: {haircut_style}")
+        
+        # Get response with image
+        text_response, images = await chat.send_message_multimodal_response(user_message)
+        
+        logger.info(f"Gemini response - Text: {text_response[:100] if text_response else 'None'}...")
+        logger.info(f"Gemini response - Images: {len(images) if images else 0}")
+        
+        if images and len(images) > 0:
+            # Return the base64 image data
+            img_data = images[0]
+            if isinstance(img_data, dict) and 'data' in img_data:
+                logger.info(f"Successfully edited photo with Gemini for style: {haircut_style}")
+                return img_data['data']  # Already base64 encoded
+            elif isinstance(img_data, str):
+                return img_data
                 
-                # Get the edited image
-                if result.get('data') and len(result['data']) > 0:
-                    img_data = result['data'][0]
-                    
-                    # Handle b64_json response
-                    if img_data.get('b64_json'):
-                        logger.info("Got b64_json response from edit API")
-                        return base64.b64decode(img_data['b64_json'])
-                    # Handle URL response
-                    elif img_data.get('url'):
-                        logger.info("Got URL response from edit API, fetching image...")
-                        img_response = await client.get(img_data['url'])
-                        return img_response.content
-                        
-            else:
-                logger.error(f"Image edit API error: {response.status_code} - {response.text[:500]}")
-                return None
-                
+        logger.warning("No image returned from Gemini")
+        return None
+        
     except Exception as e:
-        logger.error(f"Error in edit_image_with_haircut: {str(e)}")
+        logger.error(f"Error in edit_image_with_haircut_gemini: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         return None
-    
-    return None
 
 @api_router.post("/generate-haircut-image", response_model=GenerateHaircutImageResponse)
 async def generate_haircut_image(request: GenerateHaircutImageRequest):
