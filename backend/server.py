@@ -763,7 +763,7 @@ CRITICAL RULES:
             api_key=api_key,
             session_id=session_id,
             system_message=system_message
-        ).with_model("gemini", "gemini-2.5-flash-preview-05-20").with_params(modalities=["image", "text"])
+        ).with_model("gemini", "gemini-2.5-flash").with_params(modalities=["image", "text"])
         
         # Create image content from base64
         image_content = ImageContent(image_base64=image_base64)
