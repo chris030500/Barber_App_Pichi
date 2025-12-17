@@ -94,7 +94,7 @@ export default function LoginScreen() {
           />
 
           <Button
-            title="Continuar con Teléfono"
+            title="📱 Continuar con Teléfono"
             onPress={handlePhoneLogin}
             variant="outline"
             size="large"
