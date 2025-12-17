@@ -19,6 +19,14 @@ export default function RegisterScreen() {
   const [role, setRole] = useState<'client' | 'barber' | 'admin'>('client');
   const [loading, setLoading] = useState(false);
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
   const handleRegister = async () => {
     console.log('🔵 handleRegister called with:', { name, email, password: '***', confirmPassword: '***', role });
     
@@ -196,7 +204,7 @@ export default function RegisterScreen() {
 
           <Button
             title="¿Ya tienes cuenta? Inicia sesión"
-            onPress={() => router.back()}
+            onPress={handleBack}
             variant="outline"
             size="medium"
             style={styles.loginButton}
