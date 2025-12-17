@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the enhanced AI Scan with reference images and personalized image generation using OpenAI gpt-image-1"
+user_problem_statement: "Test the LOGOUT functionality in the barbershop app. User reports that clicking the logout button does nothing - the session doesn't close and they stay on the same page."
 
 backend:
   - task: "User Authentication Endpoint"
