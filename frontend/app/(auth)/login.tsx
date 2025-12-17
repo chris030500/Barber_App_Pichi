@@ -43,12 +43,12 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await login(email.trim(), password);
-      // Navigation will be handled by AuthContext
+      // Navigation will be handled by AuthContext automatically
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al iniciar sesión');
-    } finally {
       setLoading(false);
     }
+    // Don't set loading to false on success - let navigation happen
   };
 
   return (
