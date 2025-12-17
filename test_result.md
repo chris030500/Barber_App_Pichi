@@ -189,15 +189,18 @@ frontend:
 
   - task: "Logout Functionality"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/frontend/app/(client)/profile.tsx"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "testing"
           comment: "User reports that clicking the logout button does nothing - the session doesn't close and they stay on the same page. Need to test logout functionality in profile screen."
+        - working: false
+          agent: "testing"
+          comment: "❌ CONFIRMED BUG: Logout functionality is NOT working. Successfully tested on existing session - found logout button '🚪 Cerrar Sesión' on profile page, clicked it, but user remains on the same profile page (URL: /profile). No confirmation dialog appeared, and no redirect occurred. The logout button does nothing as reported by user. This is a critical authentication issue."
 
 metadata:
   created_by: "main_agent"
@@ -206,9 +209,9 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
+  current_focus: []
+  stuck_tasks:
     - "Logout Functionality"
-  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
@@ -227,3 +230,5 @@ agent_communication:
       message: "❌ GEMINI NANO BANANA TESTING FAILED: Attempted to test updated POST /api/generate-haircut-image endpoint that supposedly uses 'GEMINI NANO BANANA' instead of OpenAI, but all tests failed. Tried multiple Gemini model names (gemini-2.5-flash-preview-05-20, gemini-2.5-flash, gemini-2.5-flash-image, gemini-1.5-flash) with errors: invalid model names, text-only output, model not found. CRITICAL ISSUE: Gemini models are designed for text/image analysis, NOT image generation/editing. The term 'GEMINI NANO BANANA' appears to be incorrect. Backend logs show 'Calling Gemini Nano Banana' and 'Gemini image edit failed' messages. Endpoint returns success=false. RECOMMENDATION: Use web search to research correct image generation models or revert to working OpenAI implementation."
     - agent: "testing"
       message: "✅ GEMINI MODEL TESTING COMPLETE: Successfully verified POST /api/generate-haircut-image endpoint with CORRECT Gemini model 'gemini-2.5-flash-image-preview'. All review request requirements satisfied: 1) Endpoint accepts face image and haircut style 'fade', 2) Backend logs show 'Calling Gemini Nano Banana' and 'Successfully edited photo with Gemini' messages, 3) Response returns success=true and generated_image_base64 (2.11MB). Model processes requests in 9.39 seconds with 120-second timeout. The correct model name is 'gemini-2.5-flash-image-preview' which successfully performs image editing tasks. All backend functionality working as expected."
+    - agent: "testing"
+      message: "❌ LOGOUT BUG CONFIRMED: Tested logout functionality on barbershop app. Successfully accessed existing user session and navigated to Profile page. Found logout button '🚪 Cerrar Sesión' and clicked it, but user remains on the same profile page (/profile) with no redirect or session clearing. The logout button does nothing as reported by user. This is a critical authentication security issue that needs immediate fixing."
