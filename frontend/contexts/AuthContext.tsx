@@ -22,6 +22,20 @@ import { BACKEND_URL, isUsingFallbackBackend } from '../utils/backendUrl';
 
 let warnedMissingBackend = isUsingFallbackBackend;
 
+const normalizeRole = (role?: string | null): User['role'] => {
+  const value = role?.toString().trim().toLowerCase();
+
+  if (value === 'admin' || value === 'administrator' || value === 'administrador') {
+    return 'admin';
+  }
+
+  if (value === 'barber' || value === 'barbero') {
+    return 'barber';
+  }
+
+  return 'client';
+};
+
 export interface User {
   user_id: string;
   email: string;
@@ -81,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user_id: fbUser.uid,
         email: fbUser.email || '',
         name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuario',
-        role: 'client',
+        role: normalizeRole((fbUser as any)?.role),
         phone: fbUser.phoneNumber || undefined,
         created_at: fbUser.metadata?.creationTime || new Date().toISOString(),
         picture: fbUser.photoURL || undefined,
@@ -97,13 +111,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           if (response.data && response.data.length > 0) {
             console.log('✅ User found in backend:', response.data[0]);
-            resolvedUser = response.data[0];
+            const backendUser = response.data[0];
+            resolvedUser = { ...backendUser, role: normalizeRole(backendUser.role) };
           } else {
             console.log('⚠️ User not found in backend, creating new user...');
             const newUserResponse = await axios.post(`${BACKEND_URL}/api/users`, {
               email: fbUser.email,
               name: fallbackUser.name,
-              role: 'client',
+              role: fallbackUser.role,
               phone: fallbackUser.phone,
               picture: fallbackUser.picture,
             });
@@ -177,14 +192,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       console.log('🔵 Creating user in backend...', `${BACKEND_URL}/api/users`);
+      const normalizedRole = normalizeRole(role);
+
       const response = await axios.post(`${BACKEND_URL}/api/users`, {
         email: email,
         name: name,
-        role: role,
+        role: normalizedRole,
       });
       console.log('✅ Backend user created:', response.data);
 
-      setUser(response.data);
+      setUser({ ...response.data, role: normalizedRole });
       console.log('✅ Registration completed successfully!');
     } catch (error: any) {
       throw new Error(getErrorMessage(error?.code));
