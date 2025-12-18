@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ImageBackground } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -10,14 +10,10 @@ import { useAuth } from '../../contexts/AuthContext';
 export default function WelcomeScreen() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
-  const hasRedirected = useRef(false);
 
-  useEffect(() => {
-    if (!isLoading && user && !hasRedirected.current) {
-      hasRedirected.current = true;
-      router.replace('/');
-    }
-  }, [isLoading, router, user]);
+  if (!isLoading && user) {
+    return <Redirect href="/" />;
+  }
 
   return (
     <ImageBackground
