@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useAuth } from '../../contexts/AuthContext';
+import { getRedirectPath } from '../../utils/navigation';
 
 export default function PhoneLoginScreen() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function PhoneLoginScreen() {
   const [loading, setLoading] = useState(false);
 
   if (!isLoading && user) {
-    return <Redirect href="/" />;
+    return <Redirect href={getRedirectPath(user)} />;
   }
 
   const handleBack = () => {

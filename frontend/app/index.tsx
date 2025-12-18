@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
-import { palette, typography } from '../styles/theme';
+import { getRedirectPath } from '../utils/navigation';
 
 export default function Index() {
   const { user, isLoading } = useAuth();
@@ -10,18 +10,7 @@ export default function Index() {
 
   const redirectPath = useMemo(() => {
     if (isLoading) return null;
-    if (!user) return '/(auth)/welcome';
-
-    switch (user.role) {
-      case 'client':
-        return '/(client)/home';
-      case 'barber':
-        return '/(barber)/schedule';
-      case 'admin':
-        return '/(admin)/dashboard';
-      default:
-        return '/(auth)/welcome';
-    }
+    return getRedirectPath(user);
   }, [isLoading, user]);
 
   if (!redirectPath) {

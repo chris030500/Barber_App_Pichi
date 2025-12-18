@@ -16,6 +16,7 @@ import { StatusBar } from 'expo-status-bar';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useAuth } from '../../contexts/AuthContext';
+import { getRedirectPath } from '../../utils/navigation';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -40,7 +41,7 @@ export default function LoginScreen() {
   );
 
   if (!authLoading && user) {
-    return <Redirect href="/" />;
+    return <Redirect href={getRedirectPath(user)} />;
   }
 
   const handleGoogleLogin = async () => {

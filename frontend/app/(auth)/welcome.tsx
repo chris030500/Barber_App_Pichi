@@ -6,13 +6,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
+import { getRedirectPath } from '../../utils/navigation';
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
 
   if (!isLoading && user) {
-    return <Redirect href="/" />;
+    return <Redirect href={getRedirectPath(user)} />;
   }
 
   return (
