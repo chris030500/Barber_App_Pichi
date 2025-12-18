@@ -72,8 +72,8 @@ class Barbershop(BaseModel):
     address: str
     phone: str
     description: Optional[str] = None
-    photos: List[str] = []  # base64 images
-    working_hours: dict = {}  # {"monday": {"open": "09:00", "close": "18:00"}, ...}
+    photos: List[str] = Field(default_factory=list)  # base64 images
+    working_hours: dict = Field(default_factory=dict)  # {"monday": {"open": "09:00", "close": "18:00"}, ...}
     location: Optional[dict] = None  # {"lat": float, "lng": float}
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -83,16 +83,16 @@ class BarbershopCreate(BaseModel):
     address: str
     phone: str
     description: Optional[str] = None
-    working_hours: dict = {}
+    working_hours: dict = Field(default_factory=dict)
 
 class Barber(BaseModel):
     barber_id: str = Field(default_factory=lambda: f"barber_{uuid.uuid4().hex[:12]}")
     shop_id: str
     user_id: str
     bio: Optional[str] = None
-    specialties: List[str] = []
-    portfolio: List[str] = []  # base64 images
-    availability: dict = {}  # {"monday": ["09:00-12:00", "14:00-18:00"], ...}
+    specialties: List[str] = Field(default_factory=list)
+    portfolio: List[str] = Field(default_factory=list)  # base64 images
+    availability: dict = Field(default_factory=dict)  # {"monday": ["09:00-12:00", "14:00-18:00"], ...}
     status: str = "available"  # available, busy, unavailable
     rating: float = 0.0
     total_reviews: int = 0
@@ -102,8 +102,8 @@ class BarberCreate(BaseModel):
     shop_id: str
     user_id: str
     bio: Optional[str] = None
-    specialties: List[str] = []
-    availability: dict = {}
+    specialties: List[str] = Field(default_factory=list)
+    availability: dict = Field(default_factory=dict)
 
 class Service(BaseModel):
     service_id: str = Field(default_factory=lambda: f"service_{uuid.uuid4().hex[:12]}")
@@ -148,8 +148,8 @@ class ClientHistory(BaseModel):
     client_user_id: str
     barber_id: str
     appointment_id: str
-    photos: List[str] = []  # base64 images
-    preferences: dict = {}  # haircut preferences
+    photos: List[str] = Field(default_factory=list)  # base64 images
+    preferences: dict = Field(default_factory=dict)  # haircut preferences
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -447,7 +447,7 @@ class AIScanRequest(BaseModel):
 class AIScanResponse(BaseModel):
     success: bool
     face_shape: Optional[str] = None
-    recommendations: List[str] = []
+    recommendations: List[str] = Field(default_factory=list)
     detailed_analysis: Optional[str] = None
     error: Optional[str] = None
 
@@ -614,7 +614,7 @@ class HaircutStyle(BaseModel):
 class AIScanResponseV2(BaseModel):
     success: bool
     face_shape: Optional[str] = None
-    recommendations: List[HaircutStyle] = []
+    recommendations: List[HaircutStyle] = Field(default_factory=list)
     detailed_analysis: Optional[str] = None
     error: Optional[str] = None
 
