@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import Constants from 'expo-constants';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -19,9 +18,9 @@ import {
 } from 'firebase/auth';
 import { Platform } from 'react-native';
 import { auth } from '../config/firebase';
+import { BACKEND_URL, isUsingFallbackBackend } from '../utils/backendUrl';
 
-const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
-let warnedMissingBackend = false;
+let warnedMissingBackend = isUsingFallbackBackend;
 
 export interface User {
   user_id: string;
@@ -262,10 +261,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await firebaseSignOut(auth);
-    setUser(null);
-    setFirebaseUser(null);
-    await AsyncStorage.removeItem('user');
+    try {
+      setAuthLoading(true);
+      await firebaseSignOut(auth);
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+    } finally {
+      setUser(null);
+      setFirebaseUser(null);
+      await AsyncStorage.removeItem('user');
+      setAuthLoading(false);
+    }
   };
 
   const updateUser = (userData: Partial<User>) => {

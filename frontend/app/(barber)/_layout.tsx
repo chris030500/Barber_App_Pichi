@@ -11,7 +11,7 @@ export default function BarberLayout() {
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || (user && user.role !== 'barber'))) {
       console.log('🔴 BarberLayout: Unauthorized access, redirecting to login');
-      router.replace('/(auth)/login');
+      router.replace('/login');
     }
   }, [isLoading, isAuthenticated, user]);
 
