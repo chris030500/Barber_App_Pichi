@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
+import { palette, typography } from '../../styles/theme';
 
 const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -117,10 +118,10 @@ export default function AdminDashboardScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'scheduled': return '#3B82F6';
-      case 'completed': return '#10B981';
-      case 'cancelled': return '#EF4444';
-      default: return '#64748B';
+      case 'scheduled': return palette.accent;
+      case 'completed': return palette.success;
+      case 'cancelled': return palette.danger;
+      default: return palette.textSecondary;
     }
   };
 
@@ -135,7 +136,7 @@ export default function AdminDashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -149,7 +150,7 @@ export default function AdminDashboardScreen() {
             </Text>
           </View>
           <View style={styles.adminBadge}>
-            <Ionicons name="shield-checkmark" size={20} color="#7C3AED" />
+            <Ionicons name="shield-checkmark" size={20} color={palette.accent} />
             <Text style={styles.adminText}>Admin</Text>
           </View>
         </View>
@@ -162,17 +163,17 @@ export default function AdminDashboardScreen() {
             <Text style={styles.statLabelPrimary}>Citas Hoy</Text>
           </Card>
           <Card style={styles.statCard}>
-            <Ionicons name="checkmark-circle" size={28} color="#10B981" />
+            <Ionicons name="checkmark-circle" size={28} color={palette.success} />
             <Text style={styles.statNumber}>{stats.completedAppointments}</Text>
             <Text style={styles.statLabel}>Completadas</Text>
           </Card>
           <Card style={styles.statCard}>
-            <Ionicons name="people" size={28} color="#2563EB" />
+            <Ionicons name="people" size={28} color={palette.accentSecondary} />
             <Text style={styles.statNumber}>{stats.availableBarbers}/{stats.totalBarbers}</Text>
             <Text style={styles.statLabel}>Barberos</Text>
           </Card>
           <Card style={styles.statCard}>
-            <Ionicons name="cash" size={28} color="#F59E0B" />
+            <Ionicons name="cash" size={28} color={palette.warning} />
             <Text style={styles.statNumber}>${stats.estimatedRevenue.toFixed(0)}</Text>
             <Text style={styles.statLabel}>Ingresos Est.</Text>
           </Card>
@@ -191,7 +192,7 @@ export default function AdminDashboardScreen() {
           </View>
           <View style={styles.quickStatDivider} />
           <View style={styles.quickStat}>
-            <Text style={[styles.quickStatNumber, { color: '#EF4444' }]}>{stats.cancelledAppointments}</Text>
+            <Text style={[styles.quickStatNumber, { color: palette.danger }]}>{stats.cancelledAppointments}</Text>
             <Text style={styles.quickStatLabel}>Canceladas</Text>
           </View>
         </View>
@@ -201,7 +202,7 @@ export default function AdminDashboardScreen() {
           <Text style={styles.sectionTitle}>Citas Recientes</Text>
           {recentAppointments.length === 0 ? (
             <Card style={styles.emptyCard}>
-              <Ionicons name="calendar-outline" size={40} color="#CBD5E1" />
+          <Ionicons name="calendar-outline" size={40} color={palette.textSecondary} />
               <Text style={styles.emptyText}>No hay citas recientes</Text>
             </Card>
           ) : (
@@ -234,7 +235,7 @@ export default function AdminDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
@@ -242,18 +243,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surfaceAlt,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: palette.border,
   },
   greeting: {
+    ...typography.heading,
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E293B',
   },
   date: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     marginTop: 4,
     textTransform: 'capitalize',
   },
@@ -261,15 +260,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: palette.backgroundAlt,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
   },
   adminText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#7C3AED',
+    ...typography.body,
+    fontWeight: '700',
+    color: palette.accent,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -281,14 +280,17 @@ const styles = StyleSheet.create({
     width: '47%',
     alignItems: 'center',
     paddingVertical: 20,
+    backgroundColor: palette.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   statPrimary: {
-    backgroundColor: '#2563EB',
+    backgroundColor: palette.accent,
   },
   statNumber: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    ...typography.heading,
+    fontSize: 26,
     marginTop: 8,
   },
   statNumberPrimary: {
@@ -298,49 +300,49 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   statLabel: {
+    ...typography.body,
     fontSize: 12,
-    color: '#64748B',
     marginTop: 4,
   },
   statLabelPrimary: {
     fontSize: 12,
-    color: '#BFDBFE',
+    color: '#E2E8F0',
     marginTop: 4,
   },
   quickStatsRow: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     marginHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   quickStat: {
     flex: 1,
     alignItems: 'center',
   },
   quickStatNumber: {
+    ...typography.heading,
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E293B',
   },
   quickStatLabel: {
-    fontSize: 11,
-    color: '#64748B',
+    ...typography.body,
+    fontSize: 12,
     marginTop: 2,
   },
   quickStatDivider: {
     width: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: palette.border,
   },
   section: {
     paddingHorizontal: 16,
     paddingBottom: 24,
   },
   sectionTitle: {
+    ...typography.heading,
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1E293B',
     marginBottom: 12,
   },
   appointmentCard: {
@@ -358,13 +360,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   appointmentTime: {
+    ...typography.heading,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
   },
   appointmentDate: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -373,15 +373,14 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   emptyCard: {
     alignItems: 'center',
     paddingVertical: 32,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     marginTop: 8,
   },
 });

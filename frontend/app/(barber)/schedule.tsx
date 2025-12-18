@@ -9,6 +9,7 @@ import { es } from 'date-fns/locale';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
+import { palette, typography } from '../../styles/theme';
 
 const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -126,13 +127,13 @@ export default function BarberScheduleScreen() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'available':
-        return '#10B981';
+        return palette.success;
       case 'busy':
-        return '#F59E0B';
+        return palette.warning;
       case 'unavailable':
-        return '#EF4444';
+        return palette.danger;
       default:
-        return '#64748B';
+        return palette.textSecondary;
     }
   };
 
@@ -201,11 +202,11 @@ export default function BarberScheduleScreen() {
             style={[
               styles.statusButton,
               barberStatus === 'available' && styles.statusButtonActive,
-              { borderColor: '#10B981' }
+              { borderColor: palette.success }
             ]}
             onPress={() => updateStatus('available')}
           >
-            <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+            <Ionicons name="checkmark-circle" size={24} color={palette.success} />
             <Text style={styles.statusButtonText}>Disponible</Text>
           </TouchableOpacity>
 
@@ -213,11 +214,11 @@ export default function BarberScheduleScreen() {
             style={[
               styles.statusButton,
               barberStatus === 'busy' && styles.statusButtonActive,
-              { borderColor: '#F59E0B' }
+              { borderColor: palette.warning }
             ]}
             onPress={() => updateStatus('busy')}
           >
-            <Ionicons name="time" size={24} color="#F59E0B" />
+            <Ionicons name="time" size={24} color={palette.warning} />
             <Text style={styles.statusButtonText}>Ocupado</Text>
           </TouchableOpacity>
 
@@ -225,11 +226,11 @@ export default function BarberScheduleScreen() {
             style={[
               styles.statusButton,
               barberStatus === 'unavailable' && styles.statusButtonActive,
-              { borderColor: '#EF4444' }
+              { borderColor: palette.danger }
             ]}
             onPress={() => updateStatus('unavailable')}
           >
-            <Ionicons name="close-circle" size={24} color="#EF4444" />
+            <Ionicons name="close-circle" size={24} color={palette.danger} />
             <Text style={styles.statusButtonText}>No Disponible</Text>
           </TouchableOpacity>
         </View>
@@ -242,7 +243,7 @@ export default function BarberScheduleScreen() {
 
       {appointments.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="calendar-outline" size={64} color="#CBD5E1" />
+          <Ionicons name="calendar-outline" size={64} color={palette.textSecondary} />
           <Text style={styles.emptyTitle}>No tienes citas programadas</Text>
           <Text style={styles.emptyText}>Las citas aparecerán aquí cuando los clientes agenden</Text>
         </View>
@@ -262,7 +263,7 @@ export default function BarberScheduleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
@@ -270,36 +271,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surfaceAlt,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: palette.border,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    ...typography.heading,
+    fontSize: 24,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     marginTop: 2,
   },
   statusCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     padding: 16,
     marginHorizontal: 16,
     marginTop: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   statusLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
+    ...typography.subheading,
+    color: palette.textPrimary,
     marginBottom: 12,
   },
   statusButtons: {
@@ -310,17 +305,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 2,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    backgroundColor: palette.surfaceAlt,
   },
   statusButtonActive: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: palette.backgroundAlt,
   },
   statusButtonText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#1E293B',
+    ...typography.body,
+    color: palette.textPrimary,
     marginTop: 4,
   },
   appointmentsHeader: {
@@ -331,13 +325,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   appointmentsTitle: {
+    ...typography.heading,
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1E293B',
   },
   appointmentsCount: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
   },
   list: {
     paddingHorizontal: 16,
@@ -350,19 +342,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   appointmentTime: {
+    ...typography.heading,
     fontSize: 20,
-    fontWeight: '600',
-    color: '#1E293B',
   },
   appointmentDate: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     marginTop: 2,
     textTransform: 'capitalize',
   },
   notes: {
-    fontSize: 14,
-    color: '#475569',
+    ...typography.body,
     marginBottom: 12,
   },
   appointmentActions: {
@@ -379,15 +368,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 48,
   },
   emptyTitle: {
+    ...typography.heading,
     fontSize: 20,
-    fontWeight: '600',
-    color: '#1E293B',
     marginTop: 16,
     marginBottom: 8,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     textAlign: 'center',
     lineHeight: 20,
   },

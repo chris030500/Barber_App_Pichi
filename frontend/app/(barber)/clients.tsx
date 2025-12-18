@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
+import { palette, typography } from '../../styles/theme';
 
 const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -76,7 +77,7 @@ export default function BarberClientsScreen() {
       <Card style={styles.clientCard}>
         <View style={styles.clientHeader}>
           <View style={styles.clientAvatar}>
-            <Ionicons name="person" size={24} color="#FFFFFF" />
+          <Ionicons name="person" size={24} color="#FFFFFF" />
           </View>
           <View style={styles.clientInfo}>
             <Text style={styles.clientName}>Cliente</Text>
@@ -89,7 +90,7 @@ export default function BarberClientsScreen() {
         </View>
         <View style={styles.clientDetails}>
           <View style={styles.detailRow}>
-            <Ionicons name="calendar-outline" size={16} color="#64748B" />
+          <Ionicons name="calendar-outline" size={16} color={palette.textSecondary} />
             <Text style={styles.detailText}>
               Última visita: {format(new Date(lastVisit.scheduled_time), "d MMM yyyy", { locale: es })}
             </Text>
@@ -108,12 +109,12 @@ export default function BarberClientsScreen() {
 
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
-          <Ionicons name="people" size={24} color="#2563EB" />
+          <Ionicons name="people" size={24} color={palette.accent} />
           <Text style={styles.statNumber}>{uniqueClients.length}</Text>
           <Text style={styles.statLabel}>Clientes</Text>
         </View>
         <View style={styles.statCard}>
-          <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+          <Ionicons name="checkmark-circle" size={24} color={palette.success} />
           <Text style={styles.statNumber}>{completedAppointments.length}</Text>
           <Text style={styles.statLabel}>Servicios</Text>
         </View>
@@ -121,7 +122,7 @@ export default function BarberClientsScreen() {
 
       {uniqueClients.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="people-outline" size={64} color="#CBD5E1" />
+          <Ionicons name="people-outline" size={64} color={palette.textSecondary} />
           <Text style={styles.emptyTitle}>Aún no has atendido clientes</Text>
           <Text style={styles.emptyText}>
             El historial de tus clientes aparecerá aquí cuando completes servicios
@@ -146,23 +147,21 @@ export default function BarberClientsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surfaceAlt,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: palette.border,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    ...typography.heading,
+    fontSize: 24,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     marginTop: 2,
   },
   statsRow: {
@@ -173,25 +172,20 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    ...typography.heading,
+    fontSize: 22,
     marginTop: 8,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#64748B',
+    ...typography.body,
     marginTop: 2,
   },
   list: {
@@ -209,7 +203,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#2563EB',
+    backgroundColor: palette.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -218,36 +212,34 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   clientName: {
+    ...typography.heading,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
   },
   clientId: {
-    fontSize: 12,
-    color: '#64748B',
+    ...typography.body,
     marginTop: 2,
   },
   visitBadge: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: palette.backgroundAlt,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     alignItems: 'center',
   },
   visitCount: {
+    ...typography.heading,
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2563EB',
+    color: palette.textPrimary,
   },
   visitLabel: {
-    fontSize: 10,
-    color: '#64748B',
+    ...typography.body,
+    fontSize: 12,
   },
   clientDetails: {
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: palette.border,
   },
   detailRow: {
     flexDirection: 'row',
@@ -255,8 +247,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   detailText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
   },
   emptyState: {
     flex: 1,
@@ -265,15 +256,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 48,
   },
   emptyTitle: {
+    ...typography.heading,
     fontSize: 20,
-    fontWeight: '600',
-    color: '#1E293B',
     marginTop: 16,
     marginBottom: 8,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     textAlign: 'center',
     lineHeight: 20,
   },

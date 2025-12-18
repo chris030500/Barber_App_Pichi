@@ -1,17 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Alert, ImageBackground, TouchableOpacity } from 'react-native';
+import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useAuth } from '../../contexts/AuthContext';
-import Card from '../../components/ui/Card';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { register } = useAuth();
+  const { register, user, isLoading: authLoading } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,261 +18,355 @@ export default function RegisterScreen() {
   const [role, setRole] = useState<'client' | 'barber' | 'admin'>('client');
   const [loading, setLoading] = useState(false);
 
+  const disableActions = useMemo(() => loading || authLoading, [authLoading, loading]);
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
+  if (!authLoading && user) {
+    return <Redirect href="/" />;
+  }
+
   const handleRegister = async () => {
     console.log('🔵 handleRegister called with:', { name, email, password: '***', confirmPassword: '***', role });
-    
-    // Validations
+
     if (!name || !email || !password || !confirmPassword) {
-      console.log('❌ Validation failed: Missing fields');
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
     if (password !== confirmPassword) {
-      console.log('❌ Validation failed: Passwords do not match');
       Alert.alert('Error', 'Las contraseñas no coinciden');
       return;
     }
 
     if (password.length < 6) {
-      console.log('❌ Validation failed: Password too short');
       Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      console.log('❌ Validation failed: Invalid email format');
       Alert.alert('Error', 'Email inválido');
       return;
     }
 
-    console.log('✅ All validations passed, starting registration...');
     setLoading(true);
     try {
-      console.log('🔵 Calling register function...');
       await register(email.trim(), password, name.trim(), role);
-      console.log('✅ Register function completed successfully!');
-      console.log('🔵 AuthContext will handle navigation automatically');
-      
-      // No Alert needed - AuthContext will redirect automatically
-      // User will see loading state and then be redirected to their role's home screen
     } catch (error: any) {
       console.error('❌ Registration failed:', error);
       Alert.alert('Error', error.message || 'Error al crear la cuenta');
       setLoading(false);
     }
-    // Don't set loading to false on success - let navigation happen
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAwareScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <Ionicons name="person-add" size={60} color="#2563EB" />
-          <Text style={styles.title}>Crear Cuenta</Text>
-          <Text style={styles.subtitle}>Completa el formulario para registrarte</Text>
-        </View>
-
-        <View style={styles.form}>
-          <Input
-            label="Nombre completo"
-            value={name}
-            onChangeText={setName}
-            placeholder="Juan Pérez"
-            autoCapitalize="words"
-          />
-
-          <Input
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="tu@email.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-
-          <Input
-            label="Contraseña"
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Mínimo 6 caracteres"
-            secureTextEntry
-          />
-
-          <Input
-            label="Confirmar contraseña"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            placeholder="Repite tu contraseña"
-            secureTextEntry
-          />
-
-          <View style={styles.roleSection}>
-            <Text style={styles.roleLabel}>Tipo de cuenta:</Text>
-            <View style={styles.roleButtons}>
-              <Card
-                style={[
-                  styles.roleCard,
-                  role === 'client' && styles.roleCardSelected,
-                ]}
-                onPress={() => setRole('client')}
-              >
-                <Ionicons
-                  name="person"
-                  size={32}
-                  color={role === 'client' ? '#2563EB' : '#64748B'}
-                />
-                <Text
-                  style={[
-                    styles.roleText,
-                    role === 'client' && styles.roleTextSelected,
-                  ]}
-                >
-                  Cliente
-                </Text>
-              </Card>
-
-              <Card
-                style={[
-                  styles.roleCard,
-                  role === 'barber' && styles.roleCardSelected,
-                ]}
-                onPress={() => setRole('barber')}
-              >
-                <Ionicons
-                  name="cut"
-                  size={32}
-                  color={role === 'barber' ? '#2563EB' : '#64748B'}
-                />
-                <Text
-                  style={[
-                    styles.roleText,
-                    role === 'barber' && styles.roleTextSelected,
-                  ]}
-                >
-                  Barbero
-                </Text>
-              </Card>
-
-              <Card
-                style={[
-                  styles.roleCard,
-                  role === 'admin' && styles.roleCardSelected,
-                ]}
-                onPress={() => setRole('admin')}
-              >
-                <Ionicons
-                  name="settings"
-                  size={32}
-                  color={role === 'admin' ? '#2563EB' : '#64748B'}
-                />
-                <Text
-                  style={[
-                    styles.roleText,
-                    role === 'admin' && styles.roleTextSelected,
-                  ]}
-                >
-                  Admin
-                </Text>
-              </Card>
+    <ImageBackground
+      source={require('../../assets/images/splash-image.png')}
+      style={styles.background}
+      imageStyle={styles.backgroundImage}
+      blurRadius={26}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAwareScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <View style={styles.logoRow}>
+              <View style={styles.logoBadge}>
+                <Ionicons name="cut" size={24} color="#0B1220" />
+              </View>
+              <View>
+                <Text style={styles.brand}>BarberShop</Text>
+                <Text style={styles.tagline}>Crea tu cuenta en segundos</Text>
+              </View>
             </View>
+            <Text style={styles.hero}>Elegancia desde el primer acceso</Text>
+            <Text style={styles.heroSub}>
+              Diseñado para clientes, barberos y administradores con una experiencia sofisticada.
+            </Text>
           </View>
 
-          <Button
-            title="Crear Cuenta"
-            onPress={handleRegister}
-            size="large"
-            loading={loading}
-            disabled={loading}
-            style={styles.button}
-          />
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.pill}>
+                <Ionicons name="shield-checkmark" size={16} color="#0B1220" />
+                <Text style={styles.pillText}>Registro seguro</Text>
+              </View>
+              <Text style={styles.cardTitle}>Crear cuenta</Text>
+              <Text style={styles.cardSubtitle}>
+                Completa tus datos y elige el rol que mejor se adapta a ti.
+              </Text>
+            </View>
 
-          <Button
-            title="¿Ya tienes cuenta? Inicia sesión"
-            onPress={() => router.back()}
-            variant="outline"
-            size="medium"
-            style={styles.loginButton}
-          />
-        </View>
-      </KeyboardAwareScrollView>
-    </SafeAreaView>
+            <Input
+              label="Nombre completo"
+              value={name}
+              onChangeText={setName}
+              placeholder="Juan Pérez"
+              autoCapitalize="words"
+              variant="dark"
+            />
+
+            <Input
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="tu@email.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              variant="dark"
+            />
+
+            <Input
+              label="Contraseña"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Mínimo 6 caracteres"
+              secureTextEntry
+              variant="dark"
+            />
+
+            <Input
+              label="Confirmar contraseña"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Repite tu contraseña"
+              secureTextEntry
+              variant="dark"
+            />
+
+            <View style={styles.roleSection}>
+              <View style={styles.roleHeader}>
+                <Text style={styles.roleLabel}>Selecciona tu rol</Text>
+                <Text style={styles.roleHint}>Personaliza la experiencia según tu perfil</Text>
+              </View>
+              <View style={styles.roleButtons}>
+                {[
+                  { key: 'client', label: 'Cliente', icon: 'person', desc: 'Agenda y paga fácil' },
+                  { key: 'barber', label: 'Barbero', icon: 'cut', desc: 'Gestiona tu agenda' },
+                  { key: 'admin', label: 'Admin', icon: 'settings', desc: 'Control total' },
+                ].map(item => {
+                  const selected = role === item.key;
+                  return (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={[styles.roleCard, selected && styles.roleCardSelected]}
+                      onPress={() => setRole(item.key as typeof role)}
+                      activeOpacity={0.9}
+                      disabled={disableActions}
+                    >
+                      <View style={styles.roleIconBadge}>
+                        <Ionicons
+                          name={item.icon as any}
+                          size={18}
+                          color={selected ? '#0B1220' : '#E2E8F0'}
+                        />
+                      </View>
+                      <Text style={[styles.roleText, selected && styles.roleTextSelected]}>{item.label}</Text>
+                      <Text style={styles.roleDesc}>{item.desc}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <Button
+              title="Crear cuenta"
+              onPress={handleRegister}
+              size="large"
+              loading={loading || authLoading}
+              disabled={disableActions}
+              style={styles.button}
+            />
+
+            <TouchableOpacity style={styles.secondaryAction} onPress={handleBack} disabled={disableActions}>
+              <Text style={styles.secondaryText}>¿Ya tienes cuenta?</Text>
+              <Text style={styles.secondaryLink}>Inicia sesión</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAwareScrollView>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  background: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+  },
+  backgroundImage: {
+    opacity: 0.2,
+    transform: [{ scale: 1.05 }],
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'rgba(6, 10, 22, 0.92)',
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingVertical: 28,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1E293B',
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  logoBadge: {
+    backgroundColor: '#E5E7EB',
+    padding: 12,
+    borderRadius: 12,
+  },
+  brand: {
+    fontSize: 18,
+    color: '#E2E8F0',
+    fontWeight: '700',
+  },
+  tagline: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  hero: {
     marginTop: 16,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#64748B',
-    marginTop: 8,
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#F8FAFC',
     textAlign: 'center',
   },
-  form: {
-    flex: 1,
+  heroSub: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#CBD5E1',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    gap: 8,
+  },
+  cardHeader: {
+    gap: 8,
+  },
+  pill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#A5B4FC',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pillText: {
+    color: '#0B1220',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#F8FAFC',
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#CBD5E1',
+    lineHeight: 20,
   },
   roleSection: {
-    marginVertical: 16,
+    marginTop: 6,
+    gap: 10,
+  },
+  roleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   roleLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 12,
+    fontWeight: '700',
+    color: '#E2E8F0',
+  },
+  roleHint: {
+    fontSize: 12,
+    color: '#94A3B8',
   },
   roleButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   roleCard: {
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: 20,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    gap: 6,
   },
   roleCardSelected: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
+    borderColor: '#8B5CF6',
+    backgroundColor: 'rgba(139,92,246,0.12)',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
+  },
+  roleIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   roleText: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#64748B',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#E2E8F0',
   },
   roleTextSelected: {
-    color: '#2563EB',
-    fontWeight: '600',
+    color: '#C4B5FD',
+  },
+  roleDesc: {
+    fontSize: 12,
+    color: '#A5B4FC',
   },
   button: {
-    marginTop: 24,
+    marginTop: 10,
   },
-  loginButton: {
-    marginTop: 12,
+  secondaryAction: {
+    marginTop: 10,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  secondaryText: {
+    color: '#CBD5E1',
+    fontSize: 14,
+  },
+  secondaryLink: {
+    color: '#93C5FD',
+    fontWeight: '700',
+    fontSize: 14,
   },
 });

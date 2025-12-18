@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import { View, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
+import { palette } from '../../styles/theme';
 
 interface CardProps {
   children: ReactNode;
@@ -13,7 +14,7 @@ export default function Card({ children, style, onPress }: CardProps) {
       <TouchableOpacity
         style={[styles.card, style]}
         onPress={onPress}
-        activeOpacity={0.7}
+        activeOpacity={0.8}
       >
         {children}
       </TouchableOpacity>
@@ -29,13 +30,15 @@ export default function Card({ children, style, onPress }: CardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: palette.surface,
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: palette.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 6,
   },
 });

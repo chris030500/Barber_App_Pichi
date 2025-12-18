@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('🔵 Fetching user from backend:', `${BACKEND_URL}/api/users?email=${fbUser.email}`);
           const response = await axios.get(`${BACKEND_URL}/api/users?email=${fbUser.email}`);
           console.log('✅ Backend response:', response.data);
-          
+
           if (response.data && response.data.length > 0) {
             console.log('✅ User found in backend:', response.data[0]);
             setUser(response.data[0]);
@@ -89,6 +89,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } catch (error) {
           console.error('❌ Error fetching user data:', error);
+          // Fallback to Firebase profile so auth flows can continue even if the backend is unreachable
+          if (fbUser.email) {
+            setUser({
+              user_id: fbUser.uid,
+              email: fbUser.email,
+              name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuario',
+              role: 'client',
+              phone: fbUser.phoneNumber || undefined,
+              created_at: fbUser.metadata?.creationTime || new Date().toISOString(),
+              picture: fbUser.photoURL || undefined,
+            });
+          }
         }
       } else {
         console.log('🔵 No user signed in, clearing user state');
@@ -287,6 +299,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return 'Número de teléfono inválido';
       case 'auth/invalid-verification-code':
         return 'Código de verificación inválido';
+      case 'auth/invalid-credential':
+        return 'Credencial inválida. Verifica tu correo/contraseña o la configuración de Firebase.';
       case 'auth/too-many-requests':
         return 'Demasiados intentos. Intenta más tarde';
       default:
