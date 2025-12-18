@@ -3,6 +3,8 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { palette } from '../../styles/theme';
+import { useAuth } from '../../contexts/AuthContext';
+
 
 export default function ClientLayout() {
   const { user, isLoading, isAuthenticated } = useAuth();

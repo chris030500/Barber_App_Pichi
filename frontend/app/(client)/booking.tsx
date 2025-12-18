@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +21,64 @@ import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { palette, typography } from '../../styles/theme';
 
-const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+const BACKEND_URL =
+  Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+
+// --- Helpers para normalizar respuestas ---
+function asArray<T>(value: any): T[] {
+  if (Array.isArray(value)) return value;
+
+  // patrones comunes
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value?.items)) return value.items;
+
+  // por si tu backend manda { barbershops: [...] } etc.
+  if (Array.isArray(value?.barbershops)) return value.barbershops;
+  if (Array.isArray(value?.services)) return value.services;
+  if (Array.isArray(value?.barbers)) return value.barbers;
+
+  return [];
+}
+
+function asStringParam(param: string | string[] | undefined): string | undefined {
+  if (!param) return undefined;
+  return Array.isArray(param) ? param[0] : param;
+}
+
+// iOS no soporta Alert.prompt
+const promptText = (
+  title: string,
+  message: string,
+  onSave: (value: string) => void,
+  currentValue: string
+) => {
+  if (Platform.OS === 'ios') {
+    Alert.alert(title, message, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Guardar',
+        onPress: () => {
+          // iOS: aquí puedes navegar a una pantalla modal para editar notas
+          // por ahora dejamos un fallback simple
+          onSave(currentValue);
+        },
+      },
+    ]);
+    return;
+  }
+
+  // @ts-ignore (web / android)
+  Alert.prompt(
+    title,
+    message,
+    [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Guardar', onPress: (value: string) => onSave(value || '') },
+    ],
+    'plain-text',
+    currentValue
+  );
+};
 
 interface Service {
   service_id: string;
@@ -54,14 +112,6 @@ export default function BookingScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
-    }
-  };
-
   const [barbershops, setBarbershops] = useState<Barbershop[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
@@ -73,31 +123,54 @@ export default function BookingScreen() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
 
-  const availableDates = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
+  const availableDates = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(new Date(), i)), []);
 
-  const timeSlots = [
-    '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-    '12:00', '12:30', '14:00', '14:30', '15:00', '15:30',
-    '16:00', '16:30', '17:00', '17:30', '18:00'
-  ];
+  const timeSlots = useMemo(
+    () => [
+      '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+      '12:00', '12:30', '14:00', '14:30', '15:00', '15:30',
+      '16:00', '16:30', '17:00', '17:30', '18:00'
+    ],
+    []
+  );
+
+  const handleBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
 
   useEffect(() => {
     loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (selectedShop) {
       loadServicesAndBarbers();
+    } else {
+      setServices([]);
+      setBarbers([]);
     }
-  }, [selectedShop]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedShop?.shop_id]);
 
   const loadInitialData = async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/barbershops`);
-      setBarbershops(response.data);
+      if (!BACKEND_URL) {
+        console.warn('⚠️ BACKEND_URL no está configurado');
+        setBarbershops([]);
+        return;
+      }
 
-      if (params.shop_id) {
-        const shop = response.data.find((s: Barbershop) => s.shop_id === params.shop_id);
+      const response = await axios.get(`${BACKEND_URL}/api/barbershops`);
+      const shops = asArray<Barbershop>(response.data);
+
+      setBarbershops(shops);
+
+      const shopIdParam = asStringParam(params.shop_id as any);
+
+      if (shopIdParam) {
+        const shop = shops.find((s) => s.shop_id === shopIdParam);
         if (shop) {
           setSelectedShop(shop);
           setStep(2);
@@ -105,24 +178,30 @@ export default function BookingScreen() {
       }
     } catch (error) {
       console.error('Error loading barbershops:', error);
+      setBarbershops([]);
     } finally {
       setLoading(false);
     }
   };
 
   const loadServicesAndBarbers = async () => {
-    if (!selectedShop) return;
+    if (!selectedShop || !BACKEND_URL) return;
 
     try {
       const [servicesRes, barbersRes] = await Promise.all([
         axios.get(`${BACKEND_URL}/api/services`, { params: { shop_id: selectedShop.shop_id } }),
-        axios.get(`${BACKEND_URL}/api/barbers`, { params: { shop_id: selectedShop.shop_id } })
+        axios.get(`${BACKEND_URL}/api/barbers`, { params: { shop_id: selectedShop.shop_id } }),
       ]);
 
-      setServices(servicesRes.data);
-      setBarbers(barbersRes.data.filter((b: Barber) => b.status === 'available'));
+      const servicesList = asArray<Service>(servicesRes.data);
+      const barbersList = asArray<Barber>(barbersRes.data);
+
+      setServices(servicesList);
+      setBarbers(barbersList.filter((b) => b.status === 'available'));
     } catch (error) {
       console.error('Error loading services/barbers:', error);
+      setServices([]);
+      setBarbers([]);
     }
   };
 
@@ -144,12 +223,16 @@ export default function BookingScreen() {
         client_user_id: user.user_id,
         service_id: selectedService.service_id,
         scheduled_time: scheduledTime.toISOString(),
-        notes: notes || null
+        notes: notes || null,
       });
 
       Alert.alert(
         '¡Cita reservada!',
-        `Tu cita fue agendada para el ${format(scheduledTime, "EEEE d 'de' MMMM 'a las' HH:mm", { locale: es })}`,
+        `Tu cita fue agendada para el ${format(
+          scheduledTime,
+          "EEEE d 'de' MMMM 'a las' HH:mm",
+          { locale: es }
+        )}`,
         [{ text: 'OK', onPress: () => router.replace('/(client)/appointments') }]
       );
     } catch (error) {
@@ -189,15 +272,19 @@ export default function BookingScreen() {
         </View>
         <Ionicons name="storefront" size={22} color={palette.accentSecondary} />
       </View>
+
       {loading ? (
         <ActivityIndicator color={palette.accent} />
-      ) : barbershops.length === 0 ? (
+      ) : !Array.isArray(barbershops) || barbershops.length === 0 ? (
         <Text style={styles.emptyText}>No hay barberías disponibles</Text>
       ) : (
         barbershops.map((shop) => (
           <TouchableOpacity
             key={shop.shop_id}
-            style={[styles.optionCard, selectedShop?.shop_id === shop.shop_id && styles.optionCardSelected]}
+            style={[
+              styles.optionCard,
+              selectedShop?.shop_id === shop.shop_id && styles.optionCardSelected,
+            ]}
             onPress={() => setSelectedShop(shop)}
             activeOpacity={0.88}
           >
@@ -216,6 +303,7 @@ export default function BookingScreen() {
           </TouchableOpacity>
         ))
       )}
+
       <Button
         title="Continuar"
         onPress={() => setStep(2)}
@@ -236,13 +324,17 @@ export default function BookingScreen() {
         </View>
         <Ionicons name="sparkles" size={22} color={palette.accentSecondary} />
       </View>
-      {services.length === 0 ? (
+
+      {!Array.isArray(services) || services.length === 0 ? (
         <Text style={styles.emptyText}>Selecciona una barbería para ver servicios.</Text>
       ) : (
         services.map((service) => (
           <TouchableOpacity
             key={service.service_id}
-            style={[styles.optionCard, selectedService?.service_id === service.service_id && styles.optionCardSelected]}
+            style={[
+              styles.optionCard,
+              selectedService?.service_id === service.service_id && styles.optionCardSelected,
+            ]}
             onPress={() => setSelectedService(service)}
             activeOpacity={0.88}
           >
@@ -253,7 +345,9 @@ export default function BookingScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.optionTitle}>{service.name}</Text>
                 <Text style={styles.optionSubtitle}>{service.description || 'Servicio personalizado'}</Text>
-                <Text style={styles.optionMeta}>{service.duration} min • ${service.price}</Text>
+                <Text style={styles.optionMeta}>
+                  {service.duration} min • ${service.price}
+                </Text>
               </View>
               {selectedService?.service_id === service.service_id && (
                 <Ionicons name="checkmark-circle" size={20} color={palette.accent} />
@@ -262,6 +356,7 @@ export default function BookingScreen() {
           </TouchableOpacity>
         ))
       )}
+
       <View style={styles.dualActions}>
         <Button title="Atrás" onPress={() => setStep(1)} variant="outline" style={styles.secondaryAction} />
         <Button
@@ -283,13 +378,17 @@ export default function BookingScreen() {
         </View>
         <Ionicons name="people" size={22} color={palette.accentSecondary} />
       </View>
-      {barbers.length === 0 ? (
+
+      {!Array.isArray(barbers) || barbers.length === 0 ? (
         <Text style={styles.emptyText}>No hay barberos disponibles en este momento.</Text>
       ) : (
         barbers.map((barber) => (
           <TouchableOpacity
             key={barber.barber_id}
-            style={[styles.optionCard, selectedBarber?.barber_id === barber.barber_id && styles.optionCardSelected]}
+            style={[
+              styles.optionCard,
+              selectedBarber?.barber_id === barber.barber_id && styles.optionCardSelected,
+            ]}
             onPress={() => setSelectedBarber(barber)}
             activeOpacity={0.88}
           >
@@ -300,7 +399,9 @@ export default function BookingScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.optionTitle}>Barbero {barber.barber_id.slice(0, 4)}</Text>
                 <Text style={styles.optionSubtitle}>{barber.bio || 'Perfil en construcción'}</Text>
-                <Text style={styles.optionMeta}>⭐ {barber.rating || 'N/A'} • {barber.specialties?.join(', ')}</Text>
+                <Text style={styles.optionMeta}>
+                  ⭐ {barber.rating || 'N/A'} • {(barber.specialties || []).join(', ')}
+                </Text>
               </View>
               {selectedBarber?.barber_id === barber.barber_id && (
                 <Ionicons name="checkmark-circle" size={20} color={palette.accent} />
@@ -309,6 +410,7 @@ export default function BookingScreen() {
           </TouchableOpacity>
         ))
       )}
+
       <View style={styles.dualActions}>
         <Button title="Atrás" onPress={() => setStep(2)} variant="outline" style={styles.secondaryAction} />
         <Button
@@ -369,16 +471,12 @@ export default function BookingScreen() {
           style={styles.notesInput}
           activeOpacity={0.9}
           onPress={() =>
-            Alert.prompt('Notas', 'Agrega detalles de tu estilo o peticiones especiales', [
-              {
-                text: 'Cancelar',
-                style: 'cancel',
-              },
-              {
-                text: 'Guardar',
-                onPress: (value) => setNotes(value || ''),
-              },
-            ], 'plain-text', notes)
+            promptText(
+              'Notas',
+              'Agrega detalles de tu estilo o peticiones especiales',
+              (value) => setNotes(value),
+              notes
+            )
           }
         >
           <Text style={styles.notesValue}>{notes || 'Opcional'}</Text>

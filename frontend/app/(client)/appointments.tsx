@@ -5,26 +5,62 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
 import Constants from 'expo-constants';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { palette, typography } from '../../styles/theme';
 
-const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+const BACKEND_URL =
+  Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
 
 interface Appointment {
   appointment_id: string;
   shop_id: string;
   barber_id: string;
-  scheduled_time: string;
+  scheduled_time: string; // ej: "2025-12-17 10:30:00" o ISO
   status: string;
   notes?: string;
 }
 
+function toValidDate(raw: unknown): Date | null {
+  if (!raw) return null;
+
+  // Si viene como número (timestamp)
+  if (typeof raw === 'number') {
+    const d = new Date(raw);
+    return isValid(d) ? d : null;
+  }
+
+  if (typeof raw === 'string') {
+    const value = raw.trim();
+    if (!value) return null;
+
+    // Normaliza "YYYY-MM-DD HH:mm:ss" -> "YYYY-MM-DDTHH:mm:ss"
+    const normalized = value.includes(' ') && !value.includes('T') ? value.replace(' ', 'T') : value;
+
+    // parseISO para ISO/normalizado
+    const dIso = parseISO(normalized);
+    if (isValid(dIso)) return dIso;
+
+    // fallback a Date() por si viene en otro formato tolerado por runtime
+    const d = new Date(value);
+    return isValid(d) ? d : null;
+  }
+
+  // Por si llega como Date ya
+  if (raw instanceof Date) {
+    return isValid(raw) ? raw : null;
+  }
+
+  return null;
+}
+
 export default function AppointmentsScreen() {
   const { user } = useAuth();
+  const router = useRouter();
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'scheduled' | 'completed'>('all');
@@ -33,19 +69,19 @@ export default function AppointmentsScreen() {
     if (user) {
       loadAppointments();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, filter]);
 
   const loadAppointments = async () => {
     if (!user) return;
 
+    setLoading(true);
     try {
       const params: any = { client_user_id: user.user_id };
-      if (filter !== 'all') {
-        params.status = filter;
-      }
+      if (filter !== 'all') params.status = filter;
 
       const response = await axios.get(`${BACKEND_URL}/api/appointments`, { params });
-      setAppointments(response.data);
+      setAppointments(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error loading appointments:', error);
     } finally {
@@ -54,28 +90,24 @@ export default function AppointmentsScreen() {
   };
 
   const handleCancelAppointment = async (appointmentId: string) => {
-    Alert.alert(
-      'Cancelar cita',
-      '¿Estás seguro de que quieres cancelar esta cita?',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Sí, cancelar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await axios.put(`${BACKEND_URL}/api/appointments/${appointmentId}`, {
-                status: 'cancelled'
-              });
-              Alert.alert('Éxito', 'Cita cancelada');
-              loadAppointments();
-            } catch (error) {
-              Alert.alert('Error', 'No se pudo cancelar la cita');
-            }
-          },
+    Alert.alert('Cancelar cita', '¿Estás seguro de que quieres cancelar esta cita?', [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Sí, cancelar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await axios.put(`${BACKEND_URL}/api/appointments/${appointmentId}`, {
+              status: 'cancelled',
+            });
+            Alert.alert('Éxito', 'Cita cancelada');
+            loadAppointments();
+          } catch (error) {
+            Alert.alert('Error', 'No se pudo cancelar la cita');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const getStatusColor = (status: string) => {
@@ -109,29 +141,30 @@ export default function AppointmentsScreen() {
   };
 
   const renderAppointment = ({ item }: { item: Appointment }) => {
-    const appointmentDate = new Date(item.scheduled_time);
+    const appointmentDate = toValidDate(item.scheduled_time);
 
     return (
       <Card style={styles.appointmentCard}>
         <View style={styles.appointmentHeader}>
           <View>
             <Text style={styles.appointmentDate}>
-              {format(appointmentDate, "EEEE, d 'de' MMMM", { locale: es })}
+              {appointmentDate
+                ? format(appointmentDate, "EEEE, d 'de' MMMM", { locale: es })
+                : 'Fecha inválida'}
             </Text>
             <Text style={styles.appointmentTime}>
-              {format(appointmentDate, 'HH:mm', { locale: es })}
+              {appointmentDate ? format(appointmentDate, 'HH:mm', { locale: es }) : String(item.scheduled_time)}
             </Text>
           </View>
-          <View
-            style={[styles.statusBadge, { backgroundColor: `${getStatusColor(item.status)}22` }]}
-          >
+
+          <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(item.status)}22` }]}>
             <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
               {getStatusText(item.status)}
             </Text>
           </View>
         </View>
 
-        {item.notes && <Text style={styles.notes}>{item.notes}</Text>}
+        {item.notes ? <Text style={styles.notes}>{item.notes}</Text> : null}
 
         {item.status === 'scheduled' && (
           <View style={styles.actions}>
@@ -155,8 +188,6 @@ export default function AppointmentsScreen() {
       </Card>
     );
   };
-
-  const router = useRouter();
 
   return (
     <SafeAreaView style={styles.container}>

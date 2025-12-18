@@ -6,6 +6,8 @@ import { useRouter } from 'expo-router';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
 import { palette, typography } from '../../styles/theme';
+import Button from '../../components/ui/Button';
+
 
 export default function ProfileScreen() {
   const router = useRouter();
