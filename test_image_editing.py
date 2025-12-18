@@ -14,7 +14,7 @@ import subprocess
 from typing import Dict, Any
 
 # Get backend URL from frontend .env
-BACKEND_URL = "https://barberpro-7.preview.emergentagent.com/api"
+BACKEND_URL = "https://clipcraft-236.preview.emergentagent.com/api"
 
 class ImageEditingTester:
     def __init__(self):
