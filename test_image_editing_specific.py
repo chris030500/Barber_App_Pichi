@@ -9,7 +9,7 @@ import json
 import subprocess
 
 # Backend URL
-BACKEND_URL = "https://barberpro-7.preview.emergentagent.com/api"
+BACKEND_URL = "https://clipcraft-236.preview.emergentagent.com/api"
 
 def download_test_image():
     """Download a sample face image and convert to base64"""

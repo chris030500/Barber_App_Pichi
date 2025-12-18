@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Image, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Card from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { palette, typography } from '../../styles/theme';
 
@@ -104,9 +103,6 @@ export default function ProfileScreen() {
         <Button
           title={loggingOut ? 'Cerrando sesión...' : '🚪 Cerrar Sesión'}
           onPress={handleLogout}
-          variant="outline"
-          size="large"
-          loading={loggingOut}
           disabled={loggingOut}
           style={styles.logoutButton}
           textStyle={styles.logoutText}

@@ -6,6 +6,7 @@ import { palette, typography } from '../styles/theme';
 
 export default function Index() {
   const { user, isLoading } = useAuth();
+  const hasNavigated = useRef(false);
 
   const redirectPath = useMemo(() => {
     if (isLoading) return null;
