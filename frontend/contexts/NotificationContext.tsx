@@ -28,7 +28,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notification, setNotification] = useState<Notifications.Notification | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      if (!isMounted) return;
       setNotification(notification);
     });
 
@@ -37,8 +40,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener);
-      Notifications.removeNotificationSubscription(responseListener);
+      isMounted = false;
+      notificationListener.remove();
+      responseListener.remove();
     };
   }, []);
 
