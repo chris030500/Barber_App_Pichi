@@ -8,6 +8,9 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRedirectPath } from '../../utils/navigation';
+import { shadows } from '../../styles/theme';
+
+const roleShadow = shadows.accent;
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -326,10 +329,7 @@ const styles = StyleSheet.create({
   roleCardSelected: {
     borderColor: '#8B5CF6',
     backgroundColor: 'rgba(139,92,246,0.12)',
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.18,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 18,
+    ...roleShadow,
   },
   roleIconBadge: {
     width: 34,

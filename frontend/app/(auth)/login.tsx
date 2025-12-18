@@ -17,6 +17,10 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRedirectPath } from '../../utils/navigation';
+import { shadows } from '../../styles/theme';
+
+const badgeShadow = shadows.soft;
+const cardShadow = shadows.elevated;
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -253,11 +257,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FACC15',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 6,
+    ...badgeShadow,
   },
   brand: {
     color: '#F8FAFC',
@@ -286,11 +286,7 @@ const styles = StyleSheet.create({
     gap: 16,
     borderWidth: 1,
     borderColor: 'rgba(226, 232, 240, 0.1)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
-    elevation: 10,
+    ...cardShadow,
   },
   cardHeader: {
     gap: 10,

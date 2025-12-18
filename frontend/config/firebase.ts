@@ -32,7 +32,10 @@ const missingEnvKeys = Object.entries(envConfig)
   .filter(([, value]) => !value)
   .map(([key]) => key.replace('EXPO_PUBLIC_', ''));
 
-if (missingEnvKeys.length > 0) {
+let warnedFirebaseFallback = false;
+
+if (missingEnvKeys.length > 0 && !warnedFirebaseFallback) {
+  warnedFirebaseFallback = true;
   console.warn(
     `⚠️ Firebase config is using fallback values. Define these env vars to use your own project: ${missingEnvKeys.join(', ')}`
   );

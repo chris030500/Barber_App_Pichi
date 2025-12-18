@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { getRedirectPath } from '../utils/navigation';
-import { palette, typography } from '../styles/theme';
+import { palette } from '../styles/theme';
 
 export default function Index() {
   const { user, isLoading } = useAuth();
@@ -13,7 +13,6 @@ export default function Index() {
     return getRedirectPath(user);
   }, [isLoading, user]);
 
-  // Mientras Firebase + backend resuelven el estado
   if (!redirectPath) {
     return (
       <View style={styles.container}>
@@ -23,7 +22,6 @@ export default function Index() {
     );
   }
 
-  // Redirección FINAL (sin useEffect, sin loops)
   return <Redirect href={redirectPath} />;
 }
 
@@ -36,8 +34,8 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   text: {
-    marginTop: 12,
-    ...typography.subheading,
+    marginTop: 16,
+    fontSize: 16,
     color: palette.textSecondary,
   },
 });

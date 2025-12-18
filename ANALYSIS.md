@@ -22,3 +22,7 @@
 - Añadir observabilidad y manejo de errores detallado para los endpoints de IA (trazabilidad, métricas, códigos de error diferenciados).
 - Implementar pruebas unitarias y de integración que cubran flujos principales (usuarios, citas, generación de imágenes) y configurar un pipeline de CI.
 - Restringir CORS y añadir controles de abuso (rate limiting, autenticación de clientes) antes de exponer el backend.
+
+## Estado de sincronización con `master`
+- El repo local no tiene remote configurado ni rama `master`; `git remote -v` devuelve vacío y solo existe la rama `work`. Para traer cambios recientes es necesario añadir el remoto (por ejemplo, `git remote add origin <url-del-repo>`) y luego `git fetch origin` seguido de `git checkout master` o `git merge origin/master` según el flujo deseado.
+- Hasta que se añada el remoto, no es posible ejecutar `git pull` ni comparar con una `master` actualizada; todas las revisiones presentes reflejan únicamente el histórico local.

@@ -20,8 +20,8 @@ import {
 import { Platform } from 'react-native';
 import { auth } from '../config/firebase';
 
-const BACKEND_URL =
-  Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+let warnedMissingBackend = false;
 
 export interface User {
   user_id: string;
@@ -56,31 +56,32 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  // Keep a distinct state name to avoid accidental redeclarations when consuming the context elsewhere
   const [authLoading, setAuthLoading] = useState(true);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   useEffect(() => {
     let isActive = true;
     setAuthLoading(true);
+    console.log('🔵 AuthContext: Setting up onAuthStateChanged listener...');
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (!isActive) return;
 
+      console.log('🔵 onAuthStateChanged triggered!', { fbUser: fbUser ? 'User exists' : 'No user' });
       setFirebaseUser(fbUser);
 
-      // ✅ No hay sesión
       if (!fbUser) {
+        console.log('🔵 No user signed in, clearing user state');
         setUser(null);
         setAuthLoading(false);
         return;
       }
 
-      // ✅ Sesión existe: armamos fallback desde Firebase
-      const email = fbUser.email || '';
       const fallbackUser: User = {
         user_id: fbUser.uid,
-        email,
-        name: fbUser.displayName || email.split('@')[0] || 'Usuario',
+        email: fbUser.email || '',
+        name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuario',
         role: 'client',
         phone: fbUser.phoneNumber || undefined,
         created_at: fbUser.metadata?.creationTime || new Date().toISOString(),
@@ -89,39 +90,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       let resolvedUser: User = fallbackUser;
 
-      // ✅ Intentar resolver contra backend
-      if (BACKEND_URL && email) {
+      if (BACKEND_URL) {
         try {
-          const response = await axios.get(`${BACKEND_URL}/api/users?email=${encodeURIComponent(email)}`);
+          console.log('🔵 Fetching user from backend:', `${BACKEND_URL}/api/users?email=${fbUser.email}`);
+          const response = await axios.get(`${BACKEND_URL}/api/users?email=${fbUser.email}`);
+          console.log('✅ Backend response:', response.data);
 
-          if (Array.isArray(response.data) && response.data.length > 0) {
+          if (response.data && response.data.length > 0) {
+            console.log('✅ User found in backend:', response.data[0]);
             resolvedUser = response.data[0];
           } else {
+            console.log('⚠️ User not found in backend, creating new user...');
             const newUserResponse = await axios.post(`${BACKEND_URL}/api/users`, {
-              email,
+              email: fbUser.email,
               name: fallbackUser.name,
               role: 'client',
               phone: fallbackUser.phone,
               picture: fallbackUser.picture,
             });
-
+            console.log('✅ New user created:', newUserResponse.data);
             resolvedUser = newUserResponse.data;
           }
         } catch (error) {
           console.error('❌ Error fetching user data from backend:', error);
           // Nos quedamos con fallbackUser para no trabar la app
         }
-      } else {
-        if (!BACKEND_URL) console.warn('⚠️ BACKEND_URL no configurado. Usando solo Firebase.');
-        if (!email) console.warn('⚠️ Firebase user sin email. No se puede consultar backend.');
+      } else if (!warnedMissingBackend) {
+        warnedMissingBackend = true;
+        console.warn('⚠️ BACKEND_URL is not configured. Using Firebase profile only.');
       }
 
       if (!isActive) return;
       setUser(resolvedUser);
       setAuthLoading(false);
+      console.log('✅ onAuthStateChanged completed, authLoading set to false');
     });
 
     return () => {
+      console.log('🔵 Cleaning up onAuthStateChanged listener');
       isActive = false;
       unsubscribe();
     };
@@ -129,38 +135,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
-      // onAuthStateChanged actualiza todo
+      console.log('🔵 Login: Starting login process...', { email });
+      
+      console.log('🔵 Login: Calling Firebase signInWithEmailAndPassword...');
+      await signInWithEmailAndPassword(auth, email, password);
+      console.log('✅ Login: Firebase authentication successful!');
+      console.log('🔵 Login: onAuthStateChanged will handle the rest and set loading to false');
+      // User state will be updated by onAuthStateChanged
+      // DON'T set authLoading to false here - let onAuthStateChanged do it
     } catch (error: any) {
-      setAuthLoading(false);
-      throw new Error(getErrorMessage(error?.code));
+      console.error('❌ Login error:', error);
+      console.error('❌ Login error code:', error.code);
+      setAuthLoading(false); // Only set to false on error
+      throw new Error(getErrorMessage(error.code));
     }
   };
 
   const register = async (email: string, password: string, name: string, role: string) => {
     try {
+      console.log('🔵 Starting registration...', { email, name, role, BACKEND_URL });
       setAuthLoading(true);
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      await updateProfile(userCredential.user, { displayName: name });
+      console.log('🔵 Creating Firebase user...');
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      console.log('✅ Firebase user created:', userCredential.user.uid);
 
-      // si tienes backend, crea usuario ahí también
-      if (BACKEND_URL) {
-        const response = await axios.post(`${BACKEND_URL}/api/users`, {
-          email: email.trim(),
-          name,
-          role,
-        });
-        setUser(response.data);
-      } else {
+      await updateProfile(userCredential.user, {
+        displayName: name,
+      });
+      console.log('✅ Profile updated');
+
+      if (!BACKEND_URL) {
+        console.warn('⚠️ BACKEND_URL is not configured. Registration will not persist to the backend.');
         setUser({
           user_id: userCredential.user.uid,
-          email: email.trim(),
+          email,
           name,
           role: role as User['role'],
           created_at: userCredential.user.metadata?.creationTime || new Date().toISOString(),
         });
+        return;
       }
+
+      console.log('🔵 Creating user in backend...', `${BACKEND_URL}/api/users`);
+      const response = await axios.post(`${BACKEND_URL}/api/users`, {
+        email: email,
+        name: name,
+        role: role,
+      });
+      console.log('✅ Backend user created:', response.data);
+
+      setUser(response.data);
+      console.log('✅ Registration completed successfully!');
     } catch (error: any) {
       throw new Error(getErrorMessage(error?.code));
     } finally {
@@ -170,8 +196,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithGoogle = async () => {
     try {
+      console.log('🔵 Starting Google Sign-In...');
       setAuthLoading(true);
-
+      
       const provider = new GoogleAuthProvider();
       provider.addScope('email');
       provider.addScope('profile');
@@ -179,8 +206,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signInWithPopup(auth, provider);
       // onAuthStateChanged hará el resto
     } catch (error: any) {
+      console.error('❌ Google Sign-In error:', error);
       setAuthLoading(false);
-      throw new Error(getErrorMessage(error?.code));
+      
+      if (error.code === 'auth/popup-closed-by-user') {
+        throw new Error('Inicio de sesión cancelado');
+      } else if (error.code === 'auth/popup-blocked') {
+        throw new Error('El navegador bloqueó la ventana emergente. Permite popups e intenta de nuevo.');
+      }
+      throw new Error(getErrorMessage(error.code));
     }
   };
 
@@ -257,7 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       case 'auth/invalid-verification-code':
         return 'Código de verificación inválido';
       case 'auth/invalid-credential':
-        return 'Credencial inválida. Verifica tu correo/contraseña.';
+        return 'Credencial inválida. Verifica tu correo/contraseña o la configuración de Firebase.';
       case 'auth/too-many-requests':
         return 'Demasiados intentos. Intenta más tarde';
       case 'auth/popup-closed-by-user':
@@ -270,22 +304,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        firebaseUser,
-        isLoading: authLoading,
-        isAuthenticated: !!firebaseUser, // ✅ recomendado (no dependas del backend para considerar sesión)
-        login,
-        register,
-        loginWithGoogle,
-        loginWithPhone,
-        verifyPhoneCode,
-        logout,
-        updateUser,
-        confirmationResult,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user,
+      firebaseUser,
+      isLoading: authLoading,
+      isAuthenticated: !!user && !!firebaseUser,
+      login,
+      register,
+      loginWithGoogle,
+      loginWithPhone,
+      verifyPhoneCode,
+      logout,
+      updateUser,
+      confirmationResult
+    }}>
       {children}
     </AuthContext.Provider>
   );

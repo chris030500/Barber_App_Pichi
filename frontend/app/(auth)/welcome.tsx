@@ -7,6 +7,10 @@ import { StatusBar } from 'expo-status-bar';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRedirectPath } from '../../utils/navigation';
+import { shadows } from '../../styles/theme';
+
+const badgeShadow = shadows.soft;
+const tileShadow = shadows.elevated;
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -118,11 +122,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FACC15',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 6,
+    ...badgeShadow,
   },
   brand: {
     color: '#F8FAFC',
@@ -155,11 +155,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 18,
-    elevation: 8,
+    ...tileShadow,
   },
   tileTitle: {
     color: '#0B1220',

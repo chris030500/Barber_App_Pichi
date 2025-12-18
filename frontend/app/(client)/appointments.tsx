@@ -75,10 +75,11 @@ export default function AppointmentsScreen() {
   const loadAppointments = async () => {
     if (!user) return;
 
-    setLoading(true);
     try {
       const params: any = { client_user_id: user.user_id };
-      if (filter !== 'all') params.status = filter;
+      if (filter !== 'all') {
+        params.status = filter;
+      }
 
       const response = await axios.get(`${BACKEND_URL}/api/appointments`, { params });
       setAppointments(Array.isArray(response.data) ? response.data : []);
@@ -141,7 +142,7 @@ export default function AppointmentsScreen() {
   };
 
   const renderAppointment = ({ item }: { item: Appointment }) => {
-    const appointmentDate = toValidDate(item.scheduled_time);
+    const appointmentDate = new Date(item.scheduled_time);
 
     return (
       <Card style={styles.appointmentCard}>
@@ -156,15 +157,16 @@ export default function AppointmentsScreen() {
               {appointmentDate ? format(appointmentDate, 'HH:mm', { locale: es }) : String(item.scheduled_time)}
             </Text>
           </View>
-
-          <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(item.status)}22` }]}>
+          <View
+            style={[styles.statusBadge, { backgroundColor: `${getStatusColor(item.status)}22` }]}
+          >
             <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
               {getStatusText(item.status)}
             </Text>
           </View>
         </View>
 
-        {item.notes ? <Text style={styles.notes}>{item.notes}</Text> : null}
+        {item.notes && <Text style={styles.notes}>{item.notes}</Text>}
 
         {item.status === 'scheduled' && (
           <View style={styles.actions}>
