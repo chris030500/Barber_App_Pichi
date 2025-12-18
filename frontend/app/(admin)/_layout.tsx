@@ -12,7 +12,7 @@ export default function AdminLayout() {
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || (user && user.role !== 'admin'))) {
       console.log('🔴 AdminLayout: Unauthorized access, redirecting to login');
-      router.replace('/(auth)/login');
+      router.replace('/login');
     }
   }, [isLoading, isAuthenticated, user]);
 

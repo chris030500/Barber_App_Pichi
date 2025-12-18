@@ -26,7 +26,7 @@ export default function AdminProfileScreen() {
             try {
               setIsLoggingOut(true);
               await logout();
-              router.replace('/(auth)/login');
+              router.replace('/login');
             } catch (error) {
               console.error('❌ Error al cerrar sesión:', error);
               Alert.alert('Error', 'No se pudo cerrar sesión. Intenta de nuevo.');
