@@ -1,22 +1,37 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
+import Button from '../../components/ui/Button';
+import { palette } from '../../styles/theme';
 
 export default function AdminProfileScreen() {
   const { user, logout } = useAuth();
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro que deseas cerrar sesión?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Cerrar Sesión', style: 'destructive', onPress: logout }
-      ]
-    );
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+    } catch (error) {
+      console.error('❌ Error al cerrar sesión:', error);
+      Alert.alert('Error', 'No se pudo cerrar sesión. Intenta de nuevo.');
+    }
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+      window.location.href = '/login';
+    } else {
+      router.replace('/login');
+    }
   };
 
   const menuItems = [
@@ -100,10 +115,15 @@ export default function AdminProfileScreen() {
         </Card>
 
         {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color="#EF4444" />
-          <Text style={styles.logoutText}>Cerrar Sesión</Text>
-        </TouchableOpacity>
+        <Button
+          title={isLoggingOut ? 'Cerrando sesión...' : '🚪 Cerrar Sesión'}
+          onPress={handleLogout}
+          disabled={isLoggingOut}
+          loading={isLoggingOut}
+          variant="danger"
+          style={styles.logoutButton}
+          textStyle={styles.logoutText}
+        />
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>BarberPro © 2025</Text>
@@ -262,20 +282,11 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
     marginHorizontal: 16,
     marginTop: 24,
-    paddingVertical: 16,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
   },
   logoutText: {
-    fontSize: 16,
-    color: '#EF4444',
-    fontWeight: '600',
+    color: palette.textPrimary,
   },
   footer: {
     alignItems: 'center',
