@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TextInput, Text, StyleSheet, TextInputProps, ViewStyle } from 'react-native';
+import { palette } from '../../styles/theme';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -41,12 +42,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   labelDark: {
-    color: '#E2E8F0',
+    color: palette.textPrimary,
   },
   input: {
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
@@ -56,10 +57,10 @@ const styles = StyleSheet.create({
   inputDark: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderColor: 'rgba(255,255,255,0.2)',
-    color: '#F8FAFC',
+    color: palette.textPrimary,
   },
   inputError: {
-    borderColor: '#EF4444',
+    borderColor: palette.danger,
   },
   error: {
     fontSize: 12,

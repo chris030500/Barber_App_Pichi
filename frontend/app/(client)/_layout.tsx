@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../contexts/AuthContext';
+import { palette } from '../../styles/theme';
 
 export default function ClientLayout() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -37,12 +37,12 @@ export default function ClientLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#2563EB',
-        tabBarInactiveTintColor: '#64748B',
+        tabBarActiveTintColor: palette.accent,
+        tabBarInactiveTintColor: palette.textSecondary,
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
+          backgroundColor: palette.surface,
           borderTopWidth: 1,
-          borderTopColor: '#E2E8F0',
+          borderTopColor: palette.border,
           paddingBottom: 8,
           paddingTop: 8,
           height: 60,
@@ -89,7 +89,7 @@ export default function ClientLayout() {
       <Tabs.Screen
         name="booking"
         options={{
-          href: null, // Hide from tab bar - accessed via navigation
+          href: null,
         }}
       />
     </Tabs>

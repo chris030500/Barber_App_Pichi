@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -10,6 +10,7 @@ import { es } from 'date-fns/locale';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
+import { palette, typography } from '../../styles/theme';
 
 const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -36,13 +37,13 @@ export default function AppointmentsScreen() {
 
   const loadAppointments = async () => {
     if (!user) return;
-    
+
     try {
       const params: any = { client_user_id: user.user_id };
       if (filter !== 'all') {
         params.status = filter;
       }
-      
+
       const response = await axios.get(`${BACKEND_URL}/api/appointments`, { params });
       setAppointments(response.data);
     } catch (error) {
@@ -80,15 +81,15 @@ export default function AppointmentsScreen() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'scheduled':
-        return '#3B82F6';
+        return palette.accent;
       case 'confirmed':
-        return '#10B981';
+        return palette.success;
       case 'completed':
-        return '#64748B';
+        return palette.textSecondary;
       case 'cancelled':
-        return '#EF4444';
+        return palette.danger;
       default:
-        return '#94A3B8';
+        return palette.textSecondary;
     }
   };
 
@@ -109,7 +110,7 @@ export default function AppointmentsScreen() {
 
   const renderAppointment = ({ item }: { item: Appointment }) => {
     const appointmentDate = new Date(item.scheduled_time);
-    
+
     return (
       <Card style={styles.appointmentCard}>
         <View style={styles.appointmentHeader}>
@@ -121,16 +122,16 @@ export default function AppointmentsScreen() {
               {format(appointmentDate, 'HH:mm', { locale: es })}
             </Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
+          <View
+            style={[styles.statusBadge, { backgroundColor: `${getStatusColor(item.status)}22` }]}
+          >
             <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
               {getStatusText(item.status)}
             </Text>
           </View>
         </View>
 
-        {item.notes && (
-          <Text style={styles.notes}>{item.notes}</Text>
-        )}
+        {item.notes && <Text style={styles.notes}>{item.notes}</Text>}
 
         {item.status === 'scheduled' && (
           <View style={styles.actions}>
@@ -140,6 +141,7 @@ export default function AppointmentsScreen() {
               variant="outline"
               size="small"
               style={styles.actionButton}
+              textStyle={styles.actionText}
             />
             <Button
               title="Cancelar"
@@ -159,12 +161,13 @@ export default function AppointmentsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Mis Citas</Text>
+        <Text style={styles.title}>Mis citas</Text>
         <Button
           title="+ Nueva"
           onPress={() => router.push('/(client)/booking')}
           variant="primary"
           size="small"
+          style={styles.newButton}
         />
       </View>
 
@@ -192,14 +195,26 @@ export default function AppointmentsScreen() {
         />
       </View>
 
-      {appointments.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="calendar-outline" size={64} color="#CBD5E1" />
+      {loading ? (
+        <View style={styles.loadingState}>
+          <ActivityIndicator color={palette.accent} />
+          <Text style={styles.loadingText}>Sincronizando tus citas...</Text>
+        </View>
+      ) : appointments.length === 0 ? (
+        <Card style={styles.emptyState}>
+          <Ionicons name="calendar-outline" size={48} color={palette.textSecondary} />
           <Text style={styles.emptyTitle}>No tienes citas</Text>
           <Text style={styles.emptyText}>
-            Agenda tu primera cita desde la pantalla de inicio
+            Agenda tu primera cita desde la pantalla de inicio o comienza ahora.
           </Text>
-        </View>
+          <Button
+            title="Agendar"
+            onPress={() => router.push('/(client)/booking')}
+            variant="primary"
+            size="small"
+            style={styles.emptyButton}
+          />
+        </Card>
       ) : (
         <FlatList
           data={appointments}
@@ -216,7 +231,7 @@ export default function AppointmentsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
@@ -224,19 +239,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    ...typography.heading,
+    fontSize: 22,
+  },
+  newButton: {
+    minWidth: 96,
   },
   filters: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 4,
     gap: 8,
   },
   filterButton: {
@@ -246,65 +260,81 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 16,
+    gap: 12,
   },
   appointmentCard: {
-    marginBottom: 12,
+    gap: 10,
   },
   appointmentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 4,
   },
   appointmentDate: {
+    ...typography.heading,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
     textTransform: 'capitalize',
   },
   appointmentTime: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 2,
+    ...typography.body,
+    marginTop: 4,
   },
   statusBadge: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   notes: {
-    fontSize: 14,
-    color: '#475569',
-    marginBottom: 12,
+    ...typography.body,
+    lineHeight: 20,
   },
   actions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   actionButton: {
     flex: 1,
   },
-  emptyState: {
+  actionText: {
+    color: palette.textPrimary,
+  },
+  loadingState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 48,
+    gap: 10,
+  },
+  loadingText: {
+    ...typography.body,
+    color: palette.textPrimary,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 20,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginTop: 16,
-    marginBottom: 8,
+    ...typography.heading,
+    fontSize: 18,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     textAlign: 'center',
     lineHeight: 20,
+    paddingHorizontal: 12,
+  },
+  emptyButton: {
+    marginTop: 6,
+    paddingHorizontal: 24,
   },
 });

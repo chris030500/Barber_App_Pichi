@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
+import { palette, typography } from '../styles/theme';
 
 export default function Index() {
   const { user, isLoading } = useAuth();
+  const hasNavigated = useRef(false);
 
   const redirectPath = useMemo(() => {
     if (isLoading) return null;
@@ -22,28 +24,44 @@ export default function Index() {
     }
   }, [isLoading, user]);
 
-  if (!redirectPath) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2563EB" />
-        <Text style={styles.text}>Cargando...</Text>
-      </View>
-    );
-  }
+  useEffect(() => {
+    if (!redirectPath || hasNavigated.current) return;
 
-  return <Redirect href={redirectPath} />;
+    hasNavigated.current = true;
+    router.replace(redirectPath);
+  }, [redirectPath, router]);
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.loaderCard}>
+        <ActivityIndicator size="large" color={palette.accent} />
+        <Text style={styles.text}>Cargando experiencia...</Text>
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.background,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 24,
+  },
+  loaderCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: palette.surface,
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: palette.border,
+    alignItems: 'center',
   },
   text: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#64748B',
+    marginTop: 12,
+    ...typography.subheading,
+    color: palette.textSecondary,
   },
 });
