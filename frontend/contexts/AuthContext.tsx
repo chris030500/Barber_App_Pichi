@@ -21,6 +21,7 @@ import { auth } from '../config/firebase';
 import { Platform } from 'react-native';
 
 const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+let warnedMissingBackend = false;
 
 export interface User {
   user_id: string;
@@ -110,7 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error) {
           console.error('❌ Error fetching user data:', error);
         }
-      } else {
+      } else if (!warnedMissingBackend) {
+        warnedMissingBackend = true;
         console.warn('⚠️ BACKEND_URL is not configured. Using Firebase profile only.');
       }
 
