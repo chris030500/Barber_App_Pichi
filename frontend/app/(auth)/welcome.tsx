@@ -70,7 +70,7 @@ export default function WelcomeScreen() {
         <View style={styles.actions}>
           <Button
             title="Iniciar sesión"
-            onPress={() => router.push('/(auth)/login')}
+            onPress={() => router.push('/login')}
             size="large"
             style={styles.primary}
             textStyle={styles.primaryText}

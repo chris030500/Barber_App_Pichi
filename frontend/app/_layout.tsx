@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { LogBox } from 'react-native';
 import { AuthProvider } from '../contexts/AuthContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
+import { PushBootstrap } from '../components/PushBootstrap';
 
 LogBox.ignoreLogs([
   '"shadow*" style props are deprecated. Use "boxShadow".',
@@ -17,6 +18,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <NotificationProvider>
+        <PushBootstrap />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)/welcome" />
