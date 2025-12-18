@@ -50,7 +50,15 @@ Guía rápida para levantar el backend (FastAPI) y el frontend (Expo) en tu comp
    cd frontend
    npm install
    ```
-2. Expone la URL del backend para el cliente móvil/web (usa tu host/puerto reales):
+2. Copia las variables públicas y reemplázalas con tu proyecto de Firebase y backend:
+   ```bash
+   cd frontend
+   cp .env.example .env
+   # Edita .env con tus claves reales de Firebase y la URL del backend
+   ```
+   - Las variables `EXPO_PUBLIC_FIREBASE_*` deben apuntar a tu propio proyecto para evitar errores `auth/invalid-credential`.
+   - Si no las defines, se usarán valores de fallback y es probable que el login falle con credenciales válidas.
+3. Levanta el cliente apuntando a tu backend:
    ```bash
    EXPO_PUBLIC_BACKEND_URL=http://localhost:8000 npx expo start --clear
    ```

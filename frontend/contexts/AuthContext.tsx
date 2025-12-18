@@ -299,6 +299,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return 'Número de teléfono inválido';
       case 'auth/invalid-verification-code':
         return 'Código de verificación inválido';
+      case 'auth/invalid-credential':
+        return 'Credencial inválida. Verifica tu correo/contraseña o la configuración de Firebase.';
       case 'auth/too-many-requests':
         return 'Demasiados intentos. Intenta más tarde';
       default:
