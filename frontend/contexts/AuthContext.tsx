@@ -39,12 +39,14 @@ interface AuthContextType {
   firebaseUser: FirebaseUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, role: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithPhone: (phoneNumber: string) => Promise<string>;
   verifyPhoneCode: (verificationId: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
+
   updateUser: (userData: Partial<User>) => void;
   confirmationResult: ConfirmationResult | null;
 }
@@ -61,24 +63,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isActive = true;
     setAuthLoading(true);
 
-    console.log('🔵 AuthContext: Setting up onAuthStateChanged listener...');
-
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (!isActive) return;
 
-      console.log('🔵 onAuthStateChanged triggered!', { fbUser: fbUser ? 'User exists' : 'No user' });
       setFirebaseUser(fbUser);
 
+      // ✅ No hay sesión
       if (!fbUser) {
         setUser(null);
         setAuthLoading(false);
         return;
       }
 
+      // ✅ Sesión existe: armamos fallback desde Firebase
+      const email = fbUser.email || '';
       const fallbackUser: User = {
         user_id: fbUser.uid,
-        email: fbUser.email || '',
-        name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuario',
+        email,
+        name: fbUser.displayName || email.split('@')[0] || 'Usuario',
         role: 'client',
         phone: fbUser.phoneNumber || undefined,
         created_at: fbUser.metadata?.creationTime || new Date().toISOString(),
@@ -87,28 +89,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       let resolvedUser: User = fallbackUser;
 
-      if (BACKEND_URL) {
+      // ✅ Intentar resolver contra backend
+      if (BACKEND_URL && email) {
         try {
-          const email = fbUser.email || '';
-          console.log('🔵 Fetching user from backend:', `${BACKEND_URL}/api/users?email=${email}`);
-          const response = await axios.get(`${BACKEND_URL}/api/users?email=${email}`);
+          const response = await axios.get(`${BACKEND_URL}/api/users?email=${encodeURIComponent(email)}`);
 
-          if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          if (Array.isArray(response.data) && response.data.length > 0) {
             resolvedUser = response.data[0];
           } else {
             const newUserResponse = await axios.post(`${BACKEND_URL}/api/users`, {
               email,
               name: fallbackUser.name,
               role: 'client',
-              phone: fbUser.phoneNumber || undefined,
+              phone: fallbackUser.phone,
+              picture: fallbackUser.picture,
             });
+
             resolvedUser = newUserResponse.data;
           }
         } catch (error) {
           console.error('❌ Error fetching user data from backend:', error);
+          // Nos quedamos con fallbackUser para no trabar la app
         }
       } else {
-        console.warn('⚠️ BACKEND_URL is not configured. Using Firebase profile only.');
+        if (!BACKEND_URL) console.warn('⚠️ BACKEND_URL no configurado. Usando solo Firebase.');
+        if (!email) console.warn('⚠️ Firebase user sin email. No se puede consultar backend.');
       }
 
       if (!isActive) return;
@@ -124,8 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged actualizará user/authLoading
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      // onAuthStateChanged actualiza todo
     } catch (error: any) {
       setAuthLoading(false);
       throw new Error(getErrorMessage(error?.code));
@@ -136,13 +141,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setAuthLoading(true);
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
       await updateProfile(userCredential.user, { displayName: name });
 
+      // si tienes backend, crea usuario ahí también
       if (BACKEND_URL) {
         const response = await axios.post(`${BACKEND_URL}/api/users`, {
-          email,
+          email: email.trim(),
           name,
           role,
         });
@@ -150,7 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser({
           user_id: userCredential.user.uid,
-          email,
+          email: email.trim(),
           name,
           role: role as User['role'],
           created_at: userCredential.user.metadata?.creationTime || new Date().toISOString(),
@@ -181,13 +186,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithPhone = async (phoneNumber: string): Promise<string> => {
     try {
-      let formattedPhone = phoneNumber;
+      let formattedPhone = phoneNumber.trim();
       if (!formattedPhone.startsWith('+')) formattedPhone = '+52' + formattedPhone;
 
       if (Platform.OS !== 'web') {
         throw new Error('La autenticación por teléfono en móvil requiere configuración adicional');
       }
 
+      // container para recaptcha
       const existing = document.getElementById('recaptcha-container');
       if (!existing) {
         const div = document.createElement('div');
@@ -202,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
       setConfirmationResult(result);
 
-      return result.verificationId;
+      return result.verificationId || 'verification-sent';
     } catch (error: any) {
       throw new Error(getErrorMessage(error?.code) || error?.message);
     }
@@ -254,6 +260,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return 'Credencial inválida. Verifica tu correo/contraseña.';
       case 'auth/too-many-requests':
         return 'Demasiados intentos. Intenta más tarde';
+      case 'auth/popup-closed-by-user':
+        return 'Inicio de sesión cancelado';
+      case 'auth/popup-blocked':
+        return 'El navegador bloqueó la ventana emergente. Permite popups e intenta de nuevo.';
       default:
         return 'Error de autenticación. Intenta nuevamente';
     }
@@ -265,7 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         firebaseUser,
         isLoading: authLoading,
-        isAuthenticated: !!firebaseUser, // recomendado (no dependas de backend)
+        isAuthenticated: !!firebaseUser, // ✅ recomendado (no dependas del backend para considerar sesión)
         login,
         register,
         loginWithGoogle,

@@ -3,16 +3,17 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { getRedirectPath } from '../utils/navigation';
+import { palette, typography } from '../styles/theme';
 
 export default function Index() {
   const { user, isLoading } = useAuth();
-  const hasNavigated = useRef(false);
 
   const redirectPath = useMemo(() => {
     if (isLoading) return null;
     return getRedirectPath(user);
   }, [isLoading, user]);
 
+  // Mientras Firebase + backend resuelven el estado
   if (!redirectPath) {
     return (
       <View style={styles.container}>
@@ -22,6 +23,7 @@ export default function Index() {
     );
   }
 
+  // Redirección FINAL (sin useEffect, sin loops)
   return <Redirect href={redirectPath} />;
 }
 
@@ -32,16 +34,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-  },
-  loaderCard: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: palette.surface,
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: palette.border,
-    alignItems: 'center',
   },
   text: {
     marginTop: 12,
