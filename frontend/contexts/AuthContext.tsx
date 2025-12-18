@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Constants from 'expo-constants';
@@ -17,8 +17,8 @@ import {
   User as FirebaseUser,
   updateProfile,
 } from 'firebase/auth';
-import { auth } from '../config/firebase';
 import { Platform } from 'react-native';
+import { auth } from '../config/firebase';
 
 const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
 let warnedMissingBackend = false;
@@ -39,12 +39,14 @@ interface AuthContextType {
   firebaseUser: FirebaseUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, role: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithPhone: (phoneNumber: string) => Promise<string>;
   verifyPhoneCode: (verificationId: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
+
   updateUser: (userData: Partial<User>) => void;
   confirmationResult: ConfirmationResult | null;
 }
@@ -103,13 +105,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email: fbUser.email,
               name: fallbackUser.name,
               role: 'client',
-              phone: fbUser.phoneNumber || undefined,
+              phone: fallbackUser.phone,
+              picture: fallbackUser.picture,
             });
             console.log('✅ New user created:', newUserResponse.data);
             resolvedUser = newUserResponse.data;
           }
         } catch (error) {
-          console.error('❌ Error fetching user data:', error);
+          console.error('❌ Error fetching user data from backend:', error);
+          // Nos quedamos con fallbackUser para no trabar la app
         }
       } else if (!warnedMissingBackend) {
         warnedMissingBackend = true;
@@ -184,9 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(response.data);
       console.log('✅ Registration completed successfully!');
     } catch (error: any) {
-      console.error('❌ Registration error:', error);
-      console.error('❌ Error details:', error.response?.data || error.message);
-      throw new Error(getErrorMessage(error.code));
+      throw new Error(getErrorMessage(error?.code));
     } finally {
       setAuthLoading(false);
     }
@@ -200,11 +202,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const provider = new GoogleAuthProvider();
       provider.addScope('email');
       provider.addScope('profile');
-      
-      const result = await signInWithPopup(auth, provider);
-      console.log('✅ Google Sign-In successful:', result.user.email);
-      
-      // User state will be updated by onAuthStateChanged
+
+      await signInWithPopup(auth, provider);
+      // onAuthStateChanged hará el resto
     } catch (error: any) {
       console.error('❌ Google Sign-In error:', error);
       setAuthLoading(false);
@@ -220,89 +220,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithPhone = async (phoneNumber: string): Promise<string> => {
     try {
-      console.log('🔵 Starting Phone Sign-In for:', phoneNumber);
-      
-      // Format phone number if needed
-      let formattedPhone = phoneNumber;
-      if (!formattedPhone.startsWith('+')) {
-        formattedPhone = '+52' + formattedPhone; // Default to Mexico
-      }
-      
-      if (Platform.OS === 'web') {
-        // Create invisible reCAPTCHA
-        const recaptchaContainer = document.getElementById('recaptcha-container');
-        if (!recaptchaContainer) {
-          const div = document.createElement('div');
-          div.id = 'recaptcha-container';
-          document.body.appendChild(div);
-        }
-        
-        const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'invisible',
-          callback: () => {
-            console.log('✅ reCAPTCHA solved');
-          },
-        });
-        
-        const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
-        console.log('✅ SMS sent successfully');
-        
-        setConfirmationResult(result);
-        return result.verificationId;
-      } else {
+      let formattedPhone = phoneNumber.trim();
+      if (!formattedPhone.startsWith('+')) formattedPhone = '+52' + formattedPhone;
+
+      if (Platform.OS !== 'web') {
         throw new Error('La autenticación por teléfono en móvil requiere configuración adicional');
       }
+
+      // container para recaptcha
+      const existing = document.getElementById('recaptcha-container');
+      if (!existing) {
+        const div = document.createElement('div');
+        div.id = 'recaptcha-container';
+        document.body.appendChild(div);
+      }
+
+      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+      });
+
+      const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
+      setConfirmationResult(result);
+
+      return result.verificationId || 'verification-sent';
     } catch (error: any) {
-      console.error('❌ Phone login error:', error);
-      throw new Error(getErrorMessage(error.code));
+      throw new Error(getErrorMessage(error?.code) || error?.message);
     }
   };
 
   const verifyPhoneCode = async (verificationId: string, code: string) => {
     try {
-      console.log('🔵 Verifying phone code...');
-      
       if (confirmationResult) {
         await confirmationResult.confirm(code);
-        console.log('✅ Phone verification successful');
       } else {
         const credential = PhoneAuthProvider.credential(verificationId, code);
         await signInWithCredential(auth, credential);
       }
-      
-      // User state will be updated by onAuthStateChanged
     } catch (error: any) {
-      console.error('❌ Verification error:', error);
-      throw new Error(getErrorMessage(error.code));
+      throw new Error(getErrorMessage(error?.code));
     }
   };
 
   const logout = async () => {
-    try {
-      console.log('🔴 Logout: Starting logout process...');
-      await firebaseSignOut(auth);
-      console.log('🔴 Logout: Firebase signOut completed');
-      setUser(null);
-      setFirebaseUser(null);
-      // Clear AsyncStorage
-      await AsyncStorage.removeItem('user');
-      console.log('🔴 Logout: User state cleared');
-    } catch (error) {
-      console.error('🔴 Logout: Error logging out:', error);
-      // Even if there's an error, clear local state
-      setUser(null);
-      setFirebaseUser(null);
-      throw error;
-    }
+    await firebaseSignOut(auth);
+    setUser(null);
+    setFirebaseUser(null);
+    await AsyncStorage.removeItem('user');
   };
 
   const updateUser = (userData: Partial<User>) => {
-    if (user) {
-      setUser({ ...user, ...userData });
-    }
+    setUser((prev) => (prev ? { ...prev, ...userData } : prev));
   };
 
-  const getErrorMessage = (errorCode: string): string => {
+  const getErrorMessage = (errorCode?: string): string => {
     switch (errorCode) {
       case 'auth/invalid-email':
         return 'Correo electrónico inválido';
@@ -324,6 +294,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return 'Credencial inválida. Verifica tu correo/contraseña o la configuración de Firebase.';
       case 'auth/too-many-requests':
         return 'Demasiados intentos. Intenta más tarde';
+      case 'auth/popup-closed-by-user':
+        return 'Inicio de sesión cancelado';
+      case 'auth/popup-blocked':
+        return 'El navegador bloqueó la ventana emergente. Permite popups e intenta de nuevo.';
       default:
         return 'Error de autenticación. Intenta nuevamente';
     }
@@ -350,9 +324,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
 }

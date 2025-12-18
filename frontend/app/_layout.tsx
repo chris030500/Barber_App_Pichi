@@ -24,6 +24,7 @@ export default function RootLayout() {
           <Stack.Screen name="(client)" />
           <Stack.Screen name="(barber)" />
           <Stack.Screen name="(admin)" />
+          <Stack.Screen name="(auth)/register" />
         </Stack>
       </NotificationProvider>
     </AuthProvider>

@@ -31,6 +31,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.background,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 24,
   },
   text: {
     marginTop: 16,

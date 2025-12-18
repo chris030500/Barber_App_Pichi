@@ -6,7 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +21,64 @@ import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { palette, shadows, typography } from '../../styles/theme';
 
-const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+const BACKEND_URL =
+  Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+
+// --- Helpers para normalizar respuestas ---
+function asArray<T>(value: any): T[] {
+  if (Array.isArray(value)) return value;
+
+  // patrones comunes
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value?.items)) return value.items;
+
+  // por si tu backend manda { barbershops: [...] } etc.
+  if (Array.isArray(value?.barbershops)) return value.barbershops;
+  if (Array.isArray(value?.services)) return value.services;
+  if (Array.isArray(value?.barbers)) return value.barbers;
+
+  return [];
+}
+
+function asStringParam(param: string | string[] | undefined): string | undefined {
+  if (!param) return undefined;
+  return Array.isArray(param) ? param[0] : param;
+}
+
+// iOS no soporta Alert.prompt
+const promptText = (
+  title: string,
+  message: string,
+  onSave: (value: string) => void,
+  currentValue: string
+) => {
+  if (Platform.OS === 'ios') {
+    Alert.alert(title, message, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Guardar',
+        onPress: () => {
+          // iOS: aquí puedes navegar a una pantalla modal para editar notas
+          // por ahora dejamos un fallback simple
+          onSave(currentValue);
+        },
+      },
+    ]);
+    return;
+  }
+
+  // @ts-ignore (web / android)
+  Alert.prompt(
+    title,
+    message,
+    [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Guardar', onPress: (value: string) => onSave(value || '') },
+    ],
+    'plain-text',
+    currentValue
+  );
+};
 
 interface Service {
   service_id: string;
@@ -83,16 +141,27 @@ export default function BookingScreen() {
 
   useEffect(() => {
     loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (selectedShop) {
       loadServicesAndBarbers();
+    } else {
+      setServices([]);
+      setBarbers([]);
     }
-  }, [selectedShop]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedShop?.shop_id]);
 
   const loadInitialData = async () => {
     try {
+      if (!BACKEND_URL) {
+        console.warn('⚠️ BACKEND_URL no está configurado');
+        setBarbershops([]);
+        return;
+      }
+
       const response = await axios.get(`${BACKEND_URL}/api/barbershops`);
       setBarbershops(response.data);
 
@@ -105,6 +174,7 @@ export default function BookingScreen() {
       }
     } catch (error) {
       console.error('Error loading barbershops:', error);
+      setBarbershops([]);
     } finally {
       setLoading(false);
     }
@@ -116,13 +186,15 @@ export default function BookingScreen() {
     try {
       const [servicesRes, barbersRes] = await Promise.all([
         axios.get(`${BACKEND_URL}/api/services`, { params: { shop_id: selectedShop.shop_id } }),
-        axios.get(`${BACKEND_URL}/api/barbers`, { params: { shop_id: selectedShop.shop_id } })
+        axios.get(`${BACKEND_URL}/api/barbers`, { params: { shop_id: selectedShop.shop_id } }),
       ]);
 
       setServices(servicesRes.data);
       setBarbers(barbersRes.data.filter((b: Barber) => b.status === 'available'));
     } catch (error) {
       console.error('Error loading services/barbers:', error);
+      setServices([]);
+      setBarbers([]);
     }
   };
 
@@ -144,7 +216,7 @@ export default function BookingScreen() {
         client_user_id: user.user_id,
         service_id: selectedService.service_id,
         scheduled_time: scheduledTime.toISOString(),
-        notes: notes || null
+        notes: notes || null,
       });
 
       Alert.alert(
@@ -197,7 +269,10 @@ export default function BookingScreen() {
         barbershops.map((shop) => (
           <TouchableOpacity
             key={shop.shop_id}
-            style={[styles.optionCard, selectedShop?.shop_id === shop.shop_id && styles.optionCardSelected]}
+            style={[
+              styles.optionCard,
+              selectedShop?.shop_id === shop.shop_id && styles.optionCardSelected,
+            ]}
             onPress={() => setSelectedShop(shop)}
             activeOpacity={0.88}
           >
@@ -242,7 +317,10 @@ export default function BookingScreen() {
         services.map((service) => (
           <TouchableOpacity
             key={service.service_id}
-            style={[styles.optionCard, selectedService?.service_id === service.service_id && styles.optionCardSelected]}
+            style={[
+              styles.optionCard,
+              selectedService?.service_id === service.service_id && styles.optionCardSelected,
+            ]}
             onPress={() => setSelectedService(service)}
             activeOpacity={0.88}
           >
@@ -289,7 +367,10 @@ export default function BookingScreen() {
         barbers.map((barber) => (
           <TouchableOpacity
             key={barber.barber_id}
-            style={[styles.optionCard, selectedBarber?.barber_id === barber.barber_id && styles.optionCardSelected]}
+            style={[
+              styles.optionCard,
+              selectedBarber?.barber_id === barber.barber_id && styles.optionCardSelected,
+            ]}
             onPress={() => setSelectedBarber(barber)}
             activeOpacity={0.88}
           >
