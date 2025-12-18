@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
   Alert,
   ActivityIndicator
 } from 'react-native';
@@ -18,6 +18,7 @@ import { es } from 'date-fns/locale';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
+import { palette, typography } from '../../styles/theme';
 
 const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -48,17 +49,23 @@ export default function BookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { user } = useAuth();
-  
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  
-  // Data
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
   const [barbershops, setBarbershops] = useState<Barbershop[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
-  
-  // Selections
+
   const [selectedShop, setSelectedShop] = useState<Barbershop | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedBarber, setSelectedBarber] = useState<Barber | null>(null);
@@ -66,10 +73,8 @@ export default function BookingScreen() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
 
-  // Generate next 7 days
   const availableDates = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
-  
-  // Available time slots
+
   const timeSlots = [
     '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
     '12:00', '12:30', '14:00', '14:30', '15:00', '15:30',
@@ -90,8 +95,7 @@ export default function BookingScreen() {
     try {
       const response = await axios.get(`${BACKEND_URL}/api/barbershops`);
       setBarbershops(response.data);
-      
-      // If shop_id passed as param, auto-select it
+
       if (params.shop_id) {
         const shop = response.data.find((s: Barbershop) => s.shop_id === params.shop_id);
         if (shop) {
@@ -108,13 +112,13 @@ export default function BookingScreen() {
 
   const loadServicesAndBarbers = async () => {
     if (!selectedShop) return;
-    
+
     try {
       const [servicesRes, barbersRes] = await Promise.all([
         axios.get(`${BACKEND_URL}/api/services`, { params: { shop_id: selectedShop.shop_id } }),
         axios.get(`${BACKEND_URL}/api/barbers`, { params: { shop_id: selectedShop.shop_id } })
       ]);
-      
+
       setServices(servicesRes.data);
       setBarbers(barbersRes.data.filter((b: Barber) => b.status === 'available'));
     } catch (error) {
@@ -129,11 +133,11 @@ export default function BookingScreen() {
     }
 
     setSubmitting(true);
-    
+
     try {
       const [hours, minutes] = selectedTime.split(':').map(Number);
       const scheduledTime = setMinutes(setHours(selectedDate, hours), minutes);
-      
+
       await axios.post(`${BACKEND_URL}/api/appointments`, {
         shop_id: selectedShop.shop_id,
         barber_id: selectedBarber.barber_id,
@@ -142,10 +146,10 @@ export default function BookingScreen() {
         scheduled_time: scheduledTime.toISOString(),
         notes: notes || null
       });
-      
+
       Alert.alert(
-        '¡Cita Reservada!',
-        `Tu cita ha sido agendada para el ${format(scheduledTime, "EEEE d 'de' MMMM 'a las' HH:mm", { locale: es })}`,
+        '¡Cita reservada!',
+        `Tu cita fue agendada para el ${format(scheduledTime, "EEEE d 'de' MMMM 'a las' HH:mm", { locale: es })}`,
         [{ text: 'OK', onPress: () => router.replace('/(client)/appointments') }]
       );
     } catch (error) {
@@ -156,235 +160,261 @@ export default function BookingScreen() {
     }
   };
 
-  const renderStepIndicator = () => (
-    <View style={styles.stepIndicator}>
+  const StepHeader = () => (
+    <View style={styles.progressWrapper}>
       {[1, 2, 3, 4].map((s) => (
-        <View key={s} style={styles.stepRow}>
+        <View key={s} style={styles.stepItem}>
           <View style={[styles.stepCircle, step >= s && styles.stepCircleActive]}>
             {step > s ? (
-              <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+              <Ionicons name="checkmark" size={14} color={palette.background} />
             ) : (
               <Text style={[styles.stepNumber, step >= s && styles.stepNumberActive]}>{s}</Text>
             )}
           </View>
           {s < 4 && <View style={[styles.stepLine, step > s && styles.stepLineActive]} />}
+          <Text style={[styles.stepLabel, step >= s && styles.stepLabelActive]}>
+            {['Sucursal', 'Servicio', 'Barbero', 'Horario'][s - 1]}
+          </Text>
         </View>
       ))}
     </View>
   );
 
   const renderStep1 = () => (
-    <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Selecciona una Barbería</Text>
-      {barbershops.length === 0 ? (
-        <Card style={styles.emptyCard}>
-          <Text style={styles.emptyText}>No hay barberías disponibles</Text>
-        </Card>
+    <Card style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <View>
+          <Text style={styles.sectionTitle}>Selecciona una barbería</Text>
+          <Text style={styles.sectionSubtitle}>Elige el espacio que prefieres para tu sesión</Text>
+        </View>
+        <Ionicons name="storefront" size={22} color={palette.accentSecondary} />
+      </View>
+      {loading ? (
+        <ActivityIndicator color={palette.accent} />
+      ) : barbershops.length === 0 ? (
+        <Text style={styles.emptyText}>No hay barberías disponibles</Text>
       ) : (
         barbershops.map((shop) => (
           <TouchableOpacity
             key={shop.shop_id}
             style={[styles.optionCard, selectedShop?.shop_id === shop.shop_id && styles.optionCardSelected]}
             onPress={() => setSelectedShop(shop)}
+            activeOpacity={0.88}
           >
-            <View style={styles.optionContent}>
-              <Ionicons name="storefront" size={24} color={selectedShop?.shop_id === shop.shop_id ? '#2563EB' : '#64748B'} />
-              <View style={styles.optionText}>
-                <Text style={[styles.optionTitle, selectedShop?.shop_id === shop.shop_id && styles.optionTitleSelected]}>
-                  {shop.name}
-                </Text>
+            <View style={styles.optionHeader}>
+              <View style={styles.iconBadge}>
+                <Ionicons name="pin" size={16} color={palette.accentSecondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.optionTitle}>{shop.name}</Text>
                 <Text style={styles.optionSubtitle}>{shop.address}</Text>
               </View>
+              {selectedShop?.shop_id === shop.shop_id && (
+                <Ionicons name="checkmark-circle" size={20} color={palette.accent} />
+              )}
             </View>
-            {selectedShop?.shop_id === shop.shop_id && (
-              <Ionicons name="checkmark-circle" size={24} color="#2563EB" />
-            )}
           </TouchableOpacity>
         ))
       )}
-    </View>
+      <Button
+        title="Continuar"
+        onPress={() => setStep(2)}
+        variant="primary"
+        size="large"
+        disabled={!selectedShop}
+        style={styles.primaryAction}
+      />
+    </Card>
   );
 
   const renderStep2 = () => (
-    <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Selecciona un Servicio</Text>
+    <Card style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <View>
+          <Text style={styles.sectionTitle}>Servicio</Text>
+          <Text style={styles.sectionSubtitle}>Define el tipo de servicio y duración</Text>
+        </View>
+        <Ionicons name="sparkles" size={22} color={palette.accentSecondary} />
+      </View>
       {services.length === 0 ? (
-        <Card style={styles.emptyCard}>
-          <Text style={styles.emptyText}>No hay servicios disponibles</Text>
-        </Card>
+        <Text style={styles.emptyText}>Selecciona una barbería para ver servicios.</Text>
       ) : (
         services.map((service) => (
           <TouchableOpacity
             key={service.service_id}
             style={[styles.optionCard, selectedService?.service_id === service.service_id && styles.optionCardSelected]}
             onPress={() => setSelectedService(service)}
+            activeOpacity={0.88}
           >
-            <View style={styles.optionContent}>
-              <Ionicons name="cut" size={24} color={selectedService?.service_id === service.service_id ? '#2563EB' : '#64748B'} />
-              <View style={styles.optionText}>
-                <Text style={[styles.optionTitle, selectedService?.service_id === service.service_id && styles.optionTitleSelected]}>
-                  {service.name}
-                </Text>
-                <Text style={styles.optionSubtitle}>
-                  ${service.price} • {service.duration} min
-                </Text>
+            <View style={styles.optionHeader}>
+              <View style={[styles.iconBadge, styles.iconBadgeAlt]}>
+                <Ionicons name="flash" size={16} color={palette.background} />
               </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.optionTitle}>{service.name}</Text>
+                <Text style={styles.optionSubtitle}>{service.description || 'Servicio personalizado'}</Text>
+                <Text style={styles.optionMeta}>{service.duration} min • ${service.price}</Text>
+              </View>
+              {selectedService?.service_id === service.service_id && (
+                <Ionicons name="checkmark-circle" size={20} color={palette.accent} />
+              )}
             </View>
-            {selectedService?.service_id === service.service_id && (
-              <Ionicons name="checkmark-circle" size={24} color="#2563EB" />
-            )}
           </TouchableOpacity>
         ))
       )}
-    </View>
+      <View style={styles.dualActions}>
+        <Button title="Atrás" onPress={() => setStep(1)} variant="outline" style={styles.secondaryAction} />
+        <Button
+          title="Elegir barbero"
+          onPress={() => setStep(3)}
+          disabled={!selectedService}
+          style={styles.primaryAction}
+        />
+      </View>
+    </Card>
   );
 
   const renderStep3 = () => (
-    <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Selecciona un Barbero</Text>
+    <Card style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <View>
+          <Text style={styles.sectionTitle}>Barbero</Text>
+          <Text style={styles.sectionSubtitle}>Selecciona quién llevará tu estilo</Text>
+        </View>
+        <Ionicons name="people" size={22} color={palette.accentSecondary} />
+      </View>
       {barbers.length === 0 ? (
-        <Card style={styles.emptyCard}>
-          <Ionicons name="person-outline" size={48} color="#CBD5E1" />
-          <Text style={styles.emptyText}>No hay barberos disponibles</Text>
-        </Card>
+        <Text style={styles.emptyText}>No hay barberos disponibles en este momento.</Text>
       ) : (
         barbers.map((barber) => (
           <TouchableOpacity
             key={barber.barber_id}
             style={[styles.optionCard, selectedBarber?.barber_id === barber.barber_id && styles.optionCardSelected]}
             onPress={() => setSelectedBarber(barber)}
+            activeOpacity={0.88}
           >
-            <View style={styles.optionContent}>
-              <View style={styles.barberAvatar}>
-                <Ionicons name="person" size={24} color="#FFFFFF" />
+            <View style={styles.optionHeader}>
+              <View style={styles.avatarPlaceholder}>
+                <Ionicons name="person" size={18} color={palette.textPrimary} />
               </View>
-              <View style={styles.optionText}>
-                <Text style={[styles.optionTitle, selectedBarber?.barber_id === barber.barber_id && styles.optionTitleSelected]}>
-                  Barbero
-                </Text>
-                <View style={styles.ratingRow}>
-                  <Ionicons name="star" size={14} color="#F59E0B" />
-                  <Text style={styles.ratingText}>{barber.rating.toFixed(1)}</Text>
-                </View>
-                {barber.specialties.length > 0 && (
-                  <Text style={styles.specialties}>{barber.specialties.slice(0, 2).join(', ')}</Text>
-                )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.optionTitle}>Barbero {barber.barber_id.slice(0, 4)}</Text>
+                <Text style={styles.optionSubtitle}>{barber.bio || 'Perfil en construcción'}</Text>
+                <Text style={styles.optionMeta}>⭐ {barber.rating || 'N/A'} • {barber.specialties?.join(', ')}</Text>
               </View>
+              {selectedBarber?.barber_id === barber.barber_id && (
+                <Ionicons name="checkmark-circle" size={20} color={palette.accent} />
+              )}
             </View>
-            {selectedBarber?.barber_id === barber.barber_id && (
-              <Ionicons name="checkmark-circle" size={24} color="#2563EB" />
-            )}
           </TouchableOpacity>
         ))
       )}
-    </View>
+      <View style={styles.dualActions}>
+        <Button title="Atrás" onPress={() => setStep(2)} variant="outline" style={styles.secondaryAction} />
+        <Button
+          title="Elegir horario"
+          onPress={() => setStep(4)}
+          disabled={!selectedBarber}
+          style={styles.primaryAction}
+        />
+      </View>
+    </Card>
   );
 
   const renderStep4 = () => (
-    <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Selecciona Fecha y Hora</Text>
-      
-      <Text style={styles.sectionLabel}>Fecha</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.datesScroll}>
+    <Card style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <View>
+          <Text style={styles.sectionTitle}>Horario y notas</Text>
+          <Text style={styles.sectionSubtitle}>Escoge día, hora y agrega un mensaje</Text>
+        </View>
+        <Ionicons name="calendar" size={22} color={palette.accentSecondary} />
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
         {availableDates.map((date) => {
-          const isSelected = selectedDate && format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+          const formatted = format(date, 'EEE d', { locale: es });
+          const isSelected = selectedDate?.toDateString() === date.toDateString();
+
           return (
             <TouchableOpacity
               key={date.toISOString()}
-              style={[styles.dateCard, isSelected && styles.dateCardSelected]}
+              style={[styles.dateCard, isSelected && styles.dateCardActive]}
               onPress={() => setSelectedDate(date)}
             >
-              <Text style={[styles.dateDay, isSelected && styles.dateDaySelected]}>
-                {format(date, 'EEE', { locale: es })}
-              </Text>
-              <Text style={[styles.dateNumber, isSelected && styles.dateNumberSelected]}>
-                {format(date, 'd')}
-              </Text>
-              <Text style={[styles.dateMonth, isSelected && styles.dateMonthSelected]}>
-                {format(date, 'MMM', { locale: es })}
-              </Text>
+              <Text style={[styles.dateText, isSelected && styles.dateTextActive]}>{formatted}</Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      <Text style={styles.sectionLabel}>Hora</Text>
-      <View style={styles.timeSlotsGrid}>
-        {timeSlots.map((time) => (
-          <TouchableOpacity
-            key={time}
-            style={[styles.timeSlot, selectedTime === time && styles.timeSlotSelected]}
-            onPress={() => setSelectedTime(time)}
-          >
-            <Text style={[styles.timeSlotText, selectedTime === time && styles.timeSlotTextSelected]}>
-              {time}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.timesGrid}>
+        {timeSlots.map((time) => {
+          const isActive = selectedTime === time;
+          return (
+            <TouchableOpacity
+              key={time}
+              style={[styles.timeSlot, isActive && styles.timeSlotActive]}
+              onPress={() => setSelectedTime(time)}
+            >
+              <Text style={[styles.timeText, isActive && styles.timeTextActive]}>{time}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
-    </View>
+
+      <View style={styles.notesBox}>
+        <Text style={styles.notesLabel}>Notas para tu barbero</Text>
+        <TouchableOpacity
+          style={styles.notesInput}
+          activeOpacity={0.9}
+          onPress={() =>
+            Alert.prompt('Notas', 'Agrega detalles de tu estilo o peticiones especiales', [
+              {
+                text: 'Cancelar',
+                style: 'cancel',
+              },
+              {
+                text: 'Guardar',
+                onPress: (value) => setNotes(value || ''),
+              },
+            ], 'plain-text', notes)
+          }
+        >
+          <Text style={styles.notesValue}>{notes || 'Opcional'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.dualActions}>
+        <Button title="Atrás" onPress={() => setStep(3)} variant="outline" style={styles.secondaryAction} />
+        <Button
+          title={submitting ? 'Reservando...' : 'Confirmar cita'}
+          onPress={handleConfirmBooking}
+          disabled={!selectedDate || !selectedTime || submitting}
+          loading={submitting}
+          style={styles.primaryAction}
+        />
+      </View>
+    </Card>
   );
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1E293B" />
+    <SafeAreaView style={styles.container}>
+      <View style={styles.headerBar}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={20} color={palette.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nueva Cita</Text>
-        <View style={{ width: 40 }} />
+        <Text style={styles.headerTitle}>Reserva tu cita</Text>
+        <View style={styles.backButton} />
       </View>
 
-      {renderStepIndicator()}
-
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <StepHeader />
         {step === 1 && renderStep1()}
         {step === 2 && renderStep2()}
         {step === 3 && renderStep3()}
         {step === 4 && renderStep4()}
       </ScrollView>
-
-      <View style={styles.footer}>
-        {step > 1 && (
-          <Button
-            title="Atrás"
-            onPress={() => setStep(step - 1)}
-            variant="outline"
-            style={styles.footerButton}
-          />
-        )}
-        {step < 4 ? (
-          <Button
-            title="Continuar"
-            onPress={() => setStep(step + 1)}
-            variant="primary"
-            disabled={
-              (step === 1 && !selectedShop) ||
-              (step === 2 && !selectedService) ||
-              (step === 3 && !selectedBarber)
-            }
-            style={[styles.footerButton, step === 1 && styles.footerButtonFull]}
-          />
-        ) : (
-          <Button
-            title={submitting ? 'Reservando...' : 'Confirmar Cita'}
-            onPress={handleConfirmBooking}
-            variant="primary"
-            disabled={!selectedDate || !selectedTime || submitting}
-            style={styles.footerButton}
-          />
-        )}
-      </View>
     </SafeAreaView>
   );
 }
@@ -392,238 +422,248 @@ export default function BookingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
+  headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    paddingTop: 12,
+    paddingBottom: 6,
   },
   backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1E293B',
-  },
-  stepIndicator: {
-    flexDirection: 'row',
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  stepRow: {
+  headerTitle: {
+    ...typography.heading,
+    fontSize: 18,
+  },
+  scrollContent: {
+    padding: 16,
+    gap: 16,
+    paddingBottom: 32,
+  },
+  progressWrapper: {
+    backgroundColor: palette.surfaceAlt,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  stepItem: {
+    flex: 1,
     alignItems: 'center',
   },
   stepCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#E2E8F0',
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: palette.surface,
   },
   stepCircleActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: palette.accent,
+    borderColor: palette.accent,
   },
   stepNumber: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748B',
+    color: palette.textSecondary,
+    fontWeight: '700',
   },
   stepNumberActive: {
-    color: '#FFFFFF',
+    color: palette.background,
   },
   stepLine: {
-    width: 40,
     height: 2,
-    backgroundColor: '#E2E8F0',
-    marginHorizontal: 8,
+    width: '100%',
+    backgroundColor: palette.border,
+    marginTop: 8,
+    marginBottom: 8,
   },
   stepLineActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: palette.accent,
   },
-  scrollView: {
-    flex: 1,
+  stepLabel: {
+    ...typography.body,
+    fontSize: 12,
+    textAlign: 'center',
   },
-  stepContent: {
-    padding: 16,
+  stepLabelActive: {
+    color: palette.textPrimary,
+    fontWeight: '700',
   },
-  stepTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 16,
+  sectionCard: {
+    gap: 14,
   },
-  optionCard: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
-    marginBottom: 12,
+    gap: 12,
   },
-  optionCardSelected: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
+  sectionTitle: {
+    ...typography.heading,
+    fontSize: 18,
   },
-  optionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  optionText: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  optionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-  },
-  optionTitleSelected: {
-    color: '#2563EB',
-  },
-  optionSubtitle: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  barberAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#2563EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  sectionSubtitle: {
+    ...typography.body,
     marginTop: 4,
   },
-  ratingText: {
-    fontSize: 14,
-    color: '#64748B',
-    marginLeft: 4,
+  optionCard: {
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: 14,
+    padding: 14,
+    backgroundColor: palette.surfaceAlt,
+    marginTop: 10,
   },
-  specialties: {
-    fontSize: 12,
-    color: '#94A3B8',
+  optionCardSelected: {
+    borderColor: palette.accent,
+    shadowColor: palette.accent,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+  },
+  optionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  optionTitle: {
+    ...typography.heading,
+    fontSize: 16,
+  },
+  optionSubtitle: {
+    ...typography.body,
     marginTop: 2,
   },
-  emptyCard: {
-    alignItems: 'center',
-    paddingVertical: 32,
+  optionMeta: {
+    ...typography.body,
+    marginTop: 6,
+    color: palette.textPrimary,
   },
-  emptyText: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 8,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  datesScroll: {
-    marginBottom: 16,
-  },
-  dateCard: {
-    width: 70,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    backgroundColor: '#FFFFFF',
+  iconBadge: {
+    width: 38,
+    height: 38,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     alignItems: 'center',
-    marginRight: 10,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: palette.border,
   },
-  dateCardSelected: {
-    borderColor: '#2563EB',
-    backgroundColor: '#2563EB',
+  iconBadgeAlt: {
+    backgroundColor: palette.accent,
+    borderColor: palette.accent,
   },
-  dateDay: {
-    fontSize: 12,
-    color: '#64748B',
-    textTransform: 'capitalize',
+  dualActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
   },
-  dateDaySelected: {
-    color: '#BFDBFE',
+  primaryAction: {
+    flex: 1,
   },
-  dateNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E293B',
+  secondaryAction: {
+    flex: 1,
+  },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  dateScroll: {
     marginVertical: 4,
   },
-  dateNumberSelected: {
-    color: '#FFFFFF',
+  dateCard: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: palette.surfaceAlt,
+    borderWidth: 1,
+    borderColor: palette.border,
+    marginRight: 10,
   },
-  dateMonth: {
-    fontSize: 12,
-    color: '#64748B',
-    textTransform: 'capitalize',
+  dateCardActive: {
+    backgroundColor: palette.accent,
+    borderColor: palette.accent,
   },
-  dateMonthSelected: {
-    color: '#BFDBFE',
+  dateText: {
+    ...typography.body,
+    color: palette.textSecondary,
   },
-  timeSlotsGrid: {
+  dateTextActive: {
+    color: palette.background,
+    fontWeight: '700',
+  },
+  timesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+    marginTop: 12,
   },
   timeSlot: {
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: palette.surfaceAlt,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: palette.border,
+    minWidth: '28%',
+    alignItems: 'center',
   },
-  timeSlotSelected: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+  timeSlotActive: {
+    backgroundColor: palette.accentSecondary,
+    borderColor: palette.accentSecondary,
   },
-  timeSlotText: {
+  timeText: {
+    ...typography.body,
+    color: palette.textSecondary,
+  },
+  timeTextActive: {
+    color: palette.background,
+    fontWeight: '700',
+  },
+  notesBox: {
+    marginTop: 12,
+    gap: 8,
+  },
+  notesLabel: {
+    ...typography.subheading,
     fontSize: 14,
-    color: '#1E293B',
-    fontWeight: '500',
   },
-  timeSlotTextSelected: {
-    color: '#FFFFFF',
+  notesInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceAlt,
+    padding: 14,
   },
-  footer: {
-    flexDirection: 'row',
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    gap: 12,
+  notesValue: {
+    ...typography.body,
+    color: palette.textPrimary,
   },
-  footerButton: {
-    flex: 1,
-  },
-  footerButtonFull: {
-    flex: 1,
+  emptyText: {
+    ...typography.body,
+    color: palette.textSecondary,
+    marginTop: 8,
   },
 });

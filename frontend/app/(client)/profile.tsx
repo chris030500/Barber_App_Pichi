@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
+import { palette, typography } from '../../styles/theme';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -13,19 +14,14 @@ export default function ProfileScreen() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    console.log('🔴 handleLogout called');
     setLoggingOut(true);
-    
+
     try {
-      console.log('🔴 Calling logout...');
       await logout();
-      console.log('✅ Logout completed');
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
     }
-    
-    // Always force redirect regardless of success/failure
-    console.log('🔴 Forcing redirect to login...');
+
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       window.localStorage.clear();
       window.sessionStorage.clear();
@@ -35,83 +31,85 @@ export default function ProfileScreen() {
     }
   };
 
+  const renderMenuItem = (icon: any, label: string, action: () => void) => (
+    <Card style={styles.menuItem} onPress={action}>
+      <View style={styles.menuIconWrapper}>
+        <Ionicons name={icon} size={22} color={palette.accentSecondary} />
+      </View>
+      <Text style={styles.menuText}>{label}</Text>
+      <Ionicons name="chevron-forward" size={18} color={palette.textSecondary} />
+    </Card>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Mi Perfil</Text>
+        <Text style={styles.title}>Mi perfil</Text>
+        <Text style={styles.subtitle}>Gestiona tu cuenta y preferencias</Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             {user?.picture ? (
               <Image source={{ uri: user.picture }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <Ionicons name="person" size={48} color="#64748B" />
+                <Ionicons name="person" size={48} color={palette.textSecondary} />
               </View>
             )}
           </View>
           <Text style={styles.name}>{user?.name || 'Usuario'}</Text>
           <Text style={styles.email}>{user?.email || 'email@ejemplo.com'}</Text>
           {user?.phone && <Text style={styles.phone}>{user.phone}</Text>}
+
+          <View style={styles.badges}>
+            <View style={styles.badge}>
+              <Ionicons name="shield-checkmark" size={14} color={palette.accentSecondary} />
+              <Text style={styles.badgeText}>{user?.role || 'Cliente'}</Text>
+            </View>
+            <View style={styles.badgeMuted}>
+              <Ionicons name="sparkles" size={14} color={palette.textSecondary} />
+              <Text style={styles.badgeMutedText}>Membresía activa</Text>
+            </View>
+          </View>
         </Card>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Mi Cuenta</Text>
-          
-          <Card style={styles.menuItem} onPress={() => Alert.alert('Próximamente', 'Editar perfil')}>
-            <Ionicons name="person-outline" size={24} color="#1E293B" />
-            <Text style={styles.menuText}>Editar perfil</Text>
-            <Ionicons name="chevron-forward" size={20} color="#94A3B8" style={styles.menuArrow} />
-          </Card>
-
-          <Card style={styles.menuItem} onPress={() => Alert.alert('Próximamente', 'Historial de cortes')}>
-            <Ionicons name="time-outline" size={24} color="#1E293B" />
-            <Text style={styles.menuText}>Historial de cortes</Text>
-            <Ionicons name="chevron-forward" size={20} color="#94A3B8" style={styles.menuArrow} />
-          </Card>
-
-          <Card style={styles.menuItem} onPress={() => Alert.alert('Próximamente', 'Favoritos')}>
-            <Ionicons name="heart-outline" size={24} color="#1E293B" />
-            <Text style={styles.menuText}>Barberos favoritos</Text>
-            <Ionicons name="chevron-forward" size={20} color="#94A3B8" style={styles.menuArrow} />
-          </Card>
+          <Text style={styles.sectionTitle}>Mi cuenta</Text>
+          {renderMenuItem('person-outline', 'Editar perfil', () =>
+            Alert.alert('Próximamente', 'Editar perfil')
+          )}
+          {renderMenuItem('time-outline', 'Historial de cortes', () =>
+            Alert.alert('Próximamente', 'Historial de cortes')
+          )}
+          {renderMenuItem('heart-outline', 'Barberos favoritos', () =>
+            Alert.alert('Próximamente', 'Favoritos')
+          )}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Configuración</Text>
-          
-          <Card style={styles.menuItem} onPress={() => Alert.alert('Próximamente', 'Notificaciones')}>
-            <Ionicons name="notifications-outline" size={24} color="#1E293B" />
-            <Text style={styles.menuText}>Notificaciones</Text>
-            <Ionicons name="chevron-forward" size={20} color="#94A3B8" style={styles.menuArrow} />
-          </Card>
-
-          <Card style={styles.menuItem} onPress={() => Alert.alert('Próximamente', 'Privacidad')}>
-            <Ionicons name="shield-checkmark-outline" size={24} color="#1E293B" />
-            <Text style={styles.menuText}>Privacidad</Text>
-            <Ionicons name="chevron-forward" size={20} color="#94A3B8" style={styles.menuArrow} />
-          </Card>
-
-          <Card style={styles.menuItem} onPress={() => Alert.alert('Próximamente', 'Ayuda')}>
-            <Ionicons name="help-circle-outline" size={24} color="#1E293B" />
-            <Text style={styles.menuText}>Ayuda y soporte</Text>
-            <Ionicons name="chevron-forward" size={20} color="#94A3B8" style={styles.menuArrow} />
-          </Card>
+          <Text style={styles.sectionTitle}>Preferencias</Text>
+          {renderMenuItem('notifications-outline', 'Notificaciones', () =>
+            Alert.alert('Próximamente', 'Notificaciones')
+          )}
+          {renderMenuItem('shield-checkmark-outline', 'Privacidad', () =>
+            Alert.alert('Próximamente', 'Privacidad')
+          )}
+          {renderMenuItem('help-circle-outline', 'Ayuda y soporte', () =>
+            Alert.alert('Próximamente', 'Ayuda y soporte')
+          )}
         </View>
 
         <Button
-          title={loggingOut ? "Cerrando sesión..." : "🚪 Cerrar Sesión"}
+          title={loggingOut ? 'Cerrando sesión...' : '🚪 Cerrar Sesión'}
           onPress={handleLogout}
           variant="outline"
           size="large"
           loading={loggingOut}
           disabled={loggingOut}
           style={styles.logoutButton}
+          textStyle={styles.logoutText}
         />
       </ScrollView>
     </SafeAreaView>
@@ -121,32 +119,33 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    ...typography.heading,
+    fontSize: 24,
+  },
+  subtitle: {
+    ...typography.body,
+    marginTop: 6,
   },
   content: {
     paddingHorizontal: 16,
     paddingVertical: 16,
     paddingBottom: 32,
+    gap: 18,
   },
   profileCard: {
     alignItems: 'center',
-    paddingVertical: 32,
-    marginBottom: 24,
+    paddingVertical: 26,
+    gap: 8,
   },
   avatarContainer: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   avatar: {
     width: 100,
@@ -157,51 +156,92 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: palette.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   name: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 4,
+    ...typography.heading,
+    fontSize: 22,
   },
   email: {
-    fontSize: 16,
-    color: '#64748B',
+    ...typography.body,
   },
   phone: {
-    fontSize: 14,
-    color: '#94A3B8',
-    marginTop: 2,
+    ...typography.body,
+    color: palette.textPrimary,
+  },
+  badges: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: palette.surfaceAlt,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  badgeText: {
+    ...typography.label,
+    color: palette.textPrimary,
+  },
+  badgeMuted: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  badgeMutedText: {
+    ...typography.label,
   },
   section: {
-    marginBottom: 24,
+    gap: 10,
   },
   sectionTitle: {
+    ...typography.heading,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 12,
     marginLeft: 4,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    marginBottom: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+  },
+  menuIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#0C1527',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   menuText: {
     flex: 1,
-    fontSize: 16,
-    color: '#1E293B',
-    marginLeft: 16,
-  },
-  menuArrow: {
-    marginLeft: 'auto',
+    ...typography.subheading,
+    color: palette.textPrimary,
+    marginLeft: 12,
   },
   logoutButton: {
-    marginTop: 16,
+    marginTop: 8,
+  },
+  logoutText: {
+    color: palette.textPrimary,
   },
 });
