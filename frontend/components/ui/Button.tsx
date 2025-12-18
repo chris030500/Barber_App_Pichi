@@ -1,5 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
+import { palette } from '../../styles/theme';
 
 interface ButtonProps {
   title: string;
@@ -42,10 +43,10 @@ export default function Button({
       style={buttonStyles}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.8}
+      activeOpacity={0.85}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'outline' ? '#2563EB' : '#FFFFFF'} />
+        <ActivityIndicator color={variant === 'outline' ? palette.accent : '#FFFFFF'} />
       ) : (
         <Text style={textStyles}>{title}</Text>
       )}
@@ -55,50 +56,51 @@ export default function Button({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primary: {
-    backgroundColor: '#2563EB',
+    backgroundColor: palette.accent,
   },
   secondary: {
-    backgroundColor: '#64748B',
+    backgroundColor: palette.muted,
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: '#2563EB',
+    borderColor: palette.accent,
   },
   danger: {
-    backgroundColor: '#EF4444',
+    backgroundColor: palette.danger,
   },
   disabled: {
     opacity: 0.5,
   },
   smallButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 9,
+    paddingHorizontal: 18,
   },
   mediumButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: 13,
+    paddingHorizontal: 22,
   },
   largeButton: {
     paddingVertical: 16,
-    paddingHorizontal: 32,
+    paddingHorizontal: 28,
   },
   text: {
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   primaryText: {
     color: '#FFFFFF',
   },
   secondaryText: {
-    color: '#FFFFFF',
+    color: palette.textPrimary,
   },
   outlineText: {
-    color: '#2563EB',
+    color: palette.accent,
   },
   dangerText: {
     color: '#FFFFFF',

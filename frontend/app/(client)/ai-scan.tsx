@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Alert, 
-  Image, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  Image,
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
@@ -18,12 +18,14 @@ import Constants from 'expo-constants';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
+import { palette, typography } from '../../styles/theme';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const API_URL = Constants.expoConfig?.extra?.backendUrl || 
-                process.env.EXPO_PUBLIC_BACKEND_URL || 
-                'https://barberpro-7.preview.emergentagent.com';
+const API_URL =
+  Constants.expoConfig?.extra?.backendUrl ||
+  process.env.EXPO_PUBLIC_BACKEND_URL ||
+  'https://barberpro-7.preview.emergentagent.com';
 
 interface HaircutStyle {
   name: string;
@@ -57,7 +59,7 @@ export default function AIScanScreen() {
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    
+
     if (permissionResult.granted === false) {
       Alert.alert('Permiso denegado', 'Necesitas dar permiso para usar la cámara');
       return;
@@ -81,7 +83,7 @@ export default function AIScanScreen() {
 
   const pickFromGallery = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+
     if (permissionResult.granted === false) {
       Alert.alert('Permiso denegado', 'Necesitas dar permiso para acceder a tus fotos');
       return;
@@ -107,9 +109,8 @@ export default function AIScanScreen() {
     setAnalyzing(true);
     setResult(null);
     setGeneratedImages([]);
-    
+
     try {
-      // Use the v2 endpoint that includes reference images
       const response = await fetch(`${API_URL}/api/ai-scan-v2`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,11 +119,11 @@ export default function AIScanScreen() {
           user_id: user?.user_id || null,
         }),
       });
-      
+
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
+
       const data: AIScanResult = await response.json();
-      
+
       if (data.success) {
         setResult(data);
       } else {
@@ -144,8 +145,7 @@ export default function AIScanScreen() {
       return;
     }
 
-    // Check if already generated
-    const existing = generatedImages.find(g => g.style === styleName);
+    const existing = generatedImages.find((g) => g.style === styleName);
     if (existing) {
       setSelectedImage(`data:image/png;base64,${existing.image_base64}`);
       setModalVisible(true);
@@ -153,7 +153,7 @@ export default function AIScanScreen() {
     }
 
     setGeneratingImage(styleName);
-    
+
     try {
       const response = await fetch(`${API_URL}/api/generate-haircut-image`, {
         method: 'POST',
@@ -163,17 +163,17 @@ export default function AIScanScreen() {
           haircut_style: styleName,
         }),
       });
-      
+
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
+
       const data = await response.json();
-      
+
       if (data.success && data.generated_image_base64) {
         const newGenerated: GeneratedImage = {
           style: styleName,
-          image_base64: data.generated_image_base64
+          image_base64: data.generated_image_base64,
         };
-        setGeneratedImages(prev => [...prev, newGenerated]);
+        setGeneratedImages((prev) => [...prev, newGenerated]);
         setSelectedImage(`data:image/png;base64,${data.generated_image_base64}`);
         setModalVisible(true);
       } else {
@@ -201,14 +201,14 @@ export default function AIScanScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
           <View style={styles.headerIcon}>
-            <Ionicons name="scan" size={32} color="#2563EB" />
+            <Ionicons name="scan" size={32} color={palette.accentSecondary} />
           </View>
           <Text style={styles.title}>Escaneo IA Facial</Text>
           <Text style={styles.subtitle}>
@@ -220,11 +220,11 @@ export default function AIScanScreen() {
           {!userImage ? (
             <Card style={styles.uploadCard}>
               <View style={styles.cameraIconContainer}>
-                <Ionicons name="camera" size={60} color="#CBD5E1" />
+                <Ionicons name="camera" size={60} color={palette.textSecondary} />
               </View>
               <Text style={styles.uploadTitle}>Captura tu rostro</Text>
               <Text style={styles.uploadText}>
-                Toma una foto frontal clara para obtener recomendaciones y visualizaciones personalizadas
+                Toma una foto frontal clara para obtener recomendaciones y visualizaciones personalizadas.
               </Text>
               <View style={styles.uploadButtons}>
                 <Button
@@ -240,34 +240,31 @@ export default function AIScanScreen() {
                   variant="outline"
                   size="large"
                   style={styles.uploadButton}
+                  textStyle={styles.outlineText}
                 />
               </View>
             </Card>
           ) : (
             <View style={styles.resultContainer}>
-              {/* User's Photo */}
               <Card style={styles.imageCard}>
                 <Text style={styles.sectionLabel}>Tu foto</Text>
                 <Image source={{ uri: userImage }} style={styles.userImage} />
               </Card>
 
-              {/* Analyzing State */}
               {analyzing && (
                 <Card style={styles.analyzingCard}>
-                  <ActivityIndicator size="large" color="#2563EB" />
+                  <ActivityIndicator size="large" color={palette.accent} />
                   <Text style={styles.analyzingText}>Analizando tu rostro con IA...</Text>
                   <Text style={styles.analyzingSubtext}>Esto puede tomar unos segundos</Text>
                 </Card>
               )}
 
-              {/* Results */}
               {result && result.success && (
                 <>
-                  {/* Face Shape */}
                   {result.face_shape && (
                     <Card style={styles.faceShapeCard}>
                       <View style={styles.faceShapeHeader}>
-                        <Ionicons name="person-circle" size={28} color="#2563EB" />
+                        <Ionicons name="person-circle" size={28} color={palette.accentSecondary} />
                         <View>
                           <Text style={styles.faceShapeLabel}>Forma de tu rostro</Text>
                           <Text style={styles.faceShapeValue}>
@@ -278,13 +275,12 @@ export default function AIScanScreen() {
                     </Card>
                   )}
 
-                  {/* Recommendations with Reference Images */}
-                  <Text style={styles.sectionTitle}>✂️ Cortes Recomendados</Text>
-                  
+                  <Text style={styles.sectionTitle}>✂️ Cortes recomendados</Text>
+
                   {result.recommendations.map((rec, index) => {
                     const isGenerating = generatingImage === rec.name;
-                    const hasGenerated = generatedImages.some(g => g.style === rec.name);
-                    
+                    const hasGenerated = generatedImages.some((g) => g.style === rec.name);
+
                     return (
                       <Card key={index} style={styles.recommendationCard}>
                         <View style={styles.recHeader}>
@@ -293,32 +289,30 @@ export default function AIScanScreen() {
                           </View>
                           <Text style={styles.recName}>{rec.name}</Text>
                         </View>
-                        
+
                         <Text style={styles.recDescription}>{rec.description}</Text>
-                        
-                        {/* Reference Image */}
+
                         {rec.reference_image && (
-                          <TouchableOpacity 
+                          <TouchableOpacity
                             onPress={() => openImageModal(rec.reference_image!)}
                             style={styles.referenceImageContainer}
                           >
-                            <Image 
-                              source={{ uri: rec.reference_image }} 
+                            <Image
+                              source={{ uri: rec.reference_image }}
                               style={styles.referenceImage}
                             />
                             <View style={styles.referenceLabel}>
-                              <Ionicons name="image" size={14} color="#64748B" />
+                              <Ionicons name="image" size={14} color={palette.textSecondary} />
                               <Text style={styles.referenceLabelText}>Imagen de referencia</Text>
                             </View>
                           </TouchableOpacity>
                         )}
-                        
-                        {/* Generate Personalized Button */}
+
                         <TouchableOpacity
                           style={[
                             styles.generateButton,
                             hasGenerated && styles.generateButtonSuccess,
-                            isGenerating && styles.generateButtonLoading
+                            isGenerating && styles.generateButtonLoading,
                           ]}
                           onPress={() => generatePersonalizedImage(rec.name)}
                           disabled={isGenerating}
@@ -344,12 +338,11 @@ export default function AIScanScreen() {
                     );
                   })}
 
-                  {/* Detailed Analysis */}
                   {result.detailed_analysis && (
                     <Card style={styles.analysisCard}>
                       <View style={styles.analysisHeader}>
-                        <Ionicons name="bulb" size={24} color="#F59E0B" />
-                        <Text style={styles.analysisTitle}>Análisis Detallado</Text>
+                        <Ionicons name="bulb" size={24} color={palette.warning} />
+                        <Text style={styles.analysisTitle}>Análisis detallado</Text>
                       </View>
                       <Text style={styles.analysisText}>{result.detailed_analysis}</Text>
                     </Card>
@@ -357,10 +350,9 @@ export default function AIScanScreen() {
                 </>
               )}
 
-              {/* Error State */}
               {result && !result.success && (
                 <Card style={styles.errorCard}>
-                  <Ionicons name="alert-circle" size={40} color="#EF4444" />
+                  <Ionicons name="alert-circle" size={40} color={palette.danger} />
                   <Text style={styles.errorTitle}>No se pudo analizar</Text>
                   <Text style={styles.errorText}>
                     {result.error || 'Intenta con otra foto con mejor iluminación'}
@@ -374,57 +366,35 @@ export default function AIScanScreen() {
                 variant="outline"
                 size="medium"
                 style={styles.resetButton}
+                textStyle={styles.outlineText}
               />
             </View>
           )}
 
-          {/* Tips Card */}
           <Card style={styles.tipsCard}>
             <View style={styles.tipsHeader}>
-              <Ionicons name="bulb-outline" size={20} color="#2563EB" />
+              <Ionicons name="bulb-outline" size={20} color={palette.accentSecondary} />
               <Text style={styles.tipsTitle}>Tips para mejores resultados</Text>
             </View>
-            <View style={styles.tipItem}>
-              <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-              <Text style={styles.tipText}>Buena iluminación frontal</Text>
-            </View>
-            <View style={styles.tipItem}>
-              <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-              <Text style={styles.tipText}>Rostro completamente visible</Text>
-            </View>
-            <View style={styles.tipItem}>
-              <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-              <Text style={styles.tipText}>Sin gafas ni accesorios que cubran</Text>
-            </View>
+            {["Buena iluminación frontal", "Rostro completamente visible", "Sin gafas ni accesorios que cubran"].map((tip) => (
+              <View style={styles.tipItem} key={tip}>
+                <Ionicons name="checkmark-circle" size={16} color={palette.success} />
+                <Text style={styles.tipText}>{tip}</Text>
+              </View>
+            ))}
           </Card>
         </View>
       </ScrollView>
 
-      {/* Image Modal */}
-      <Modal
-        visible={modalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
-      >
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
-          <TouchableOpacity 
-            style={styles.modalCloseArea} 
-            onPress={() => setModalVisible(false)}
-          />
+          <TouchableOpacity style={styles.modalCloseArea} onPress={() => setModalVisible(false)} />
           <View style={styles.modalContent}>
-            <TouchableOpacity 
-              style={styles.modalCloseButton}
-              onPress={() => setModalVisible(false)}
-            >
+            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setModalVisible(false)}>
               <Ionicons name="close-circle" size={36} color="#FFFFFF" />
             </TouchableOpacity>
             {selectedImage && (
-              <Image 
-                source={{ uri: selectedImage }} 
-                style={styles.modalImage}
-                resizeMode="contain"
-              />
+              <Image source={{ uri: selectedImage }} style={styles.modalImage} resizeMode="contain" />
             )}
           </View>
         </View>
@@ -436,7 +406,7 @@ export default function AIScanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
   },
   scrollView: {
     flex: 1,
@@ -448,71 +418,73 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: palette.border,
   },
   headerIcon: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#0B1324',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   title: {
+    ...typography.heading,
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     textAlign: 'center',
     lineHeight: 20,
     maxWidth: 280,
+    marginTop: 6,
   },
   content: {
     flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 16,
+    gap: 12,
   },
   uploadCard: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: 32,
+    gap: 12,
   },
   cameraIconContainer: {
     width: 100,
     height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F1F5F9',
+    borderRadius: 24,
+    backgroundColor: palette.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   uploadTitle: {
+    ...typography.heading,
     fontSize: 20,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 8,
   },
   uploadText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 24,
     paddingHorizontal: 24,
   },
   uploadButtons: {
     width: '100%',
-    gap: 12,
+    gap: 10,
     paddingHorizontal: 16,
   },
   uploadButton: {
     width: '100%',
+  },
+  outlineText: {
+    color: palette.textPrimary,
   },
   resultContainer: {
     gap: 16,
@@ -521,139 +493,121 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    ...typography.label,
+    marginBottom: 10,
   },
   userImage: {
     width: '100%',
-    height: 200,
-    borderRadius: 12,
-    resizeMode: 'cover',
+    height: 260,
+    borderRadius: 16,
   },
   analyzingCard: {
     alignItems: 'center',
-    paddingVertical: 32,
+    gap: 8,
   },
   analyzingText: {
-    fontSize: 16,
-    color: '#2563EB',
-    marginTop: 16,
-    fontWeight: '600',
+    ...typography.subheading,
+    color: palette.textPrimary,
   },
   analyzingSubtext: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 4,
+    ...typography.body,
   },
   faceShapeCard: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-    borderWidth: 1,
+    gap: 10,
   },
   faceShapeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   faceShapeLabel: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
+    ...typography.label,
+    color: palette.textSecondary,
   },
   faceShapeValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    ...typography.heading,
+    fontSize: 18,
   },
   sectionTitle: {
+    ...typography.heading,
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: 4,
   },
   recommendationCard: {
-    backgroundColor: '#FFFFFF',
+    gap: 10,
   },
   recHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
+    gap: 10,
   },
   recNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#2563EB',
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: palette.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   recNumberText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: palette.background,
+    fontWeight: '700',
   },
   recName: {
+    ...typography.subheading,
+    color: palette.textPrimary,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-    flex: 1,
   },
   recDescription: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     lineHeight: 20,
-    marginBottom: 12,
   },
   referenceImageContainer: {
-    marginBottom: 12,
+    marginTop: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   referenceImage: {
     width: '100%',
-    height: 180,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    height: 220,
   },
   referenceLabel: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 6,
+    gap: 6,
+    padding: 10,
+    backgroundColor: palette.surfaceAlt,
   },
   referenceLabelText: {
-    fontSize: 12,
-    color: '#64748B',
+    ...typography.body,
   },
   generateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#7C3AED',
+    backgroundColor: palette.accent,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 10,
   },
   generateButtonSuccess: {
-    backgroundColor: '#10B981',
+    backgroundColor: palette.success,
   },
   generateButtonLoading: {
-    backgroundColor: '#A78BFA',
+    backgroundColor: palette.accentSecondary,
   },
   generateButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
     color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
   },
   analysisCard: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
+    borderColor: palette.border,
     borderWidth: 1,
+    backgroundColor: '#0D1322',
   },
   analysisHeader: {
     flexDirection: 'row',
@@ -662,62 +616,51 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   analysisTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#92400E',
+    ...typography.subheading,
+    color: palette.textPrimary,
   },
   analysisText: {
-    fontSize: 14,
-    color: '#78350F',
+    ...typography.body,
     lineHeight: 22,
   },
   errorCard: {
     alignItems: 'center',
     paddingVertical: 24,
-    backgroundColor: '#FEF2F2',
+    gap: 6,
   },
   errorTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#DC2626',
-    marginTop: 12,
+    ...typography.subheading,
+    color: palette.danger,
   },
   errorText: {
-    fontSize: 14,
-    color: '#7F1D1D',
+    ...typography.body,
     textAlign: 'center',
-    marginTop: 8,
     lineHeight: 20,
   },
   resetButton: {
     marginTop: 8,
   },
   tipsCard: {
-    marginTop: 16,
-    backgroundColor: '#F0FDF4',
-    borderColor: '#BBF7D0',
-    borderWidth: 1,
+    marginTop: 6,
+    gap: 8,
   },
   tipsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 12,
   },
   tipsTitle: {
+    ...typography.subheading,
     fontSize: 14,
-    fontWeight: '600',
-    color: '#166534',
   },
   tipItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 6,
   },
   tipText: {
-    fontSize: 13,
-    color: '#15803D',
+    ...typography.body,
+    color: palette.textPrimary,
   },
   modalOverlay: {
     flex: 1,
