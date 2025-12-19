@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { BACKEND_URL } from '../../utils/backendUrl';
+import { palette, typography, shadows } from '../../styles/theme';
 
 interface Barber {
   barber_id: string;
@@ -423,7 +424,7 @@ export default function AdminBarbersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
@@ -431,28 +432,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surfaceAlt,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: palette.border,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    ...typography.heading,
+    fontSize: 22,
   },
   addButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#2563EB',
+    backgroundColor: palette.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   shopSelector: {
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: palette.border,
     gap: 8,
   },
   shopSelectorHeader: {
@@ -461,9 +461,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   selectorLabel: {
+    ...typography.heading,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#0F172A',
   },
   shopsScroll: {
     marginTop: 4,
@@ -472,15 +471,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: palette.backgroundAlt,
     marginRight: 8,
   },
   shopPillActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: palette.accent,
   },
   shopPillText: {
-    color: '#0F172A',
-    fontWeight: '600',
+    ...typography.label,
+    color: palette.textPrimary,
   },
   shopPillTextActive: {
     color: '#FFFFFF',
@@ -489,37 +488,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: palette.backgroundAlt,
   },
   summaryCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     margin: 16,
     borderRadius: 16,
     padding: 16,
     gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: palette.border,
+    ...shadows.soft,
   },
   summaryItem: {
     flex: 1,
     alignItems: 'center',
   },
   summaryNumber: {
+    ...typography.heading,
     fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
   },
   summaryLabel: {
+    ...typography.body,
     fontSize: 12,
-    color: '#475569',
   },
   summaryDivider: {
     width: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: palette.border,
   },
   list: {
     padding: 16,
@@ -538,7 +534,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#2563EB',
+    backgroundColor: palette.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -550,20 +546,19 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: palette.surface,
   },
   barberInfo: {
     flex: 1,
     marginLeft: 12,
   },
   barberName: {
+    ...typography.heading,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
   },
   barberId: {
+    ...typography.body,
     fontSize: 12,
-    color: '#64748B',
   },
   ratingRow: {
     flexDirection: 'row',
@@ -572,15 +567,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   ratingText: {
+    ...typography.body,
     fontSize: 12,
-    color: '#64748B',
   },
   statusToggle: {
     padding: 4,
   },
   bio: {
-    fontSize: 14,
-    color: '#475569',
+    ...typography.body,
+    color: palette.textPrimary,
     marginTop: 12,
     lineHeight: 20,
   },
@@ -591,21 +586,21 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   tag: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: palette.backgroundAlt,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   tagText: {
-    fontSize: 12,
-    color: '#2563EB',
+    ...typography.label,
+    color: palette.accent,
   },
   actions: {
     flexDirection: 'row',
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: palette.border,
     gap: 16,
   },
   actionButton: {
@@ -614,17 +609,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   actionText: {
-    fontSize: 14,
-    color: '#2563EB',
-    fontWeight: '500',
+    ...typography.label,
+    color: palette.accent,
   },
   empty: {
     alignItems: 'center',
     paddingVertical: 64,
   },
   emptyText: {
+    ...typography.body,
     fontSize: 16,
-    color: '#64748B',
     marginTop: 16,
   },
   emptyCard: {
@@ -633,13 +627,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyTitle: {
+    ...typography.heading,
     fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#475569',
+    ...typography.body,
+    color: palette.textSecondary,
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -649,38 +642,38 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   modalTitle: {
+    ...typography.heading,
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E293B',
     marginBottom: 8,
   },
   selectedShop: {
-    fontSize: 14,
-    color: '#475569',
+    ...typography.body,
+    color: palette.textSecondary,
     marginBottom: 16,
   },
   inputGroup: {
     marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    ...typography.label,
+    color: palette.textPrimary,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.backgroundAlt,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: palette.border,
   },
   textArea: {
     minHeight: 80,
