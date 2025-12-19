@@ -3,20 +3,21 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { palette } from '../../styles/theme';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, normalizeRole } from '../../contexts/AuthContext';
 
 export default function AdminLayout() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
+  const role = normalizeRole(user?.role);
 
   useEffect(() => {
-    if (!isLoading && (!isAuthenticated || (user && user.role !== 'admin'))) {
+    if (!isLoading && (!isAuthenticated || role !== 'admin')) {
       console.log('🔴 AdminLayout: Unauthorized access, redirecting to login');
       router.replace('/login');
     }
-  }, [isLoading, isAuthenticated, user]);
+  }, [isLoading, isAuthenticated, role, router]);
 
-  if (isLoading || !isAuthenticated || (user && user.role !== 'admin')) {
+  if (isLoading || !isAuthenticated || role !== 'admin') {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2563EB" />

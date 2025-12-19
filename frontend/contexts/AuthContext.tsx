@@ -22,7 +22,7 @@ import { BACKEND_URL, isUsingFallbackBackend } from '../utils/backendUrl';
 
 let warnedMissingBackend = isUsingFallbackBackend;
 
-const normalizeRole = (role?: string | null): User['role'] => {
+export const normalizeRole = (role?: string | null): User['role'] => {
   const value = role?.toString().trim().toLowerCase();
 
   if (value === 'admin' || value === 'administrator' || value === 'administrador') {
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               picture: fallbackUser.picture,
             });
             console.log('✅ New user created:', newUserResponse.data);
-            resolvedUser = newUserResponse.data;
+            resolvedUser = { ...newUserResponse.data, role: normalizeRole(newUserResponse.data?.role) };
           }
         } catch (error) {
           console.error('❌ Error fetching user data from backend:', error);
@@ -179,20 +179,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       console.log('✅ Profile updated');
 
+      const normalizedRole = normalizeRole(role);
+
       if (!BACKEND_URL) {
         console.warn('⚠️ BACKEND_URL is not configured. Registration will not persist to the backend.');
         setUser({
           user_id: userCredential.user.uid,
           email,
           name,
-          role: role as User['role'],
+          role: normalizedRole,
           created_at: userCredential.user.metadata?.creationTime || new Date().toISOString(),
         });
         return;
       }
 
       console.log('🔵 Creating user in backend...', `${BACKEND_URL}/api/users`);
-      const normalizedRole = normalizeRole(role);
 
       const response = await axios.post(`${BACKEND_URL}/api/users`, {
         email: email,
@@ -297,7 +298,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUser = (userData: Partial<User>) => {
-    setUser((prev) => (prev ? { ...prev, ...userData } : prev));
+    setUser((prev) => {
+      if (!prev) return prev;
+
+      const nextRole = userData.role ? normalizeRole(userData.role) : prev.role;
+      return { ...prev, ...userData, role: nextRole };
+    });
   };
 
   const getErrorMessage = (errorCode?: string): string => {
