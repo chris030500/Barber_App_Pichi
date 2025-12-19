@@ -196,6 +196,17 @@ class AppointmentEarnRequest(BaseModel):
     appointment_id: str
 
 
+class ClientLog(BaseModel):
+    level: str = Field(default="error")
+    message: str
+    context: Optional[dict] = None
+    user_id: Optional[str] = None
+    stack: Optional[str] = None
+    platform: Optional[str] = None
+    screen: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 def validate_working_hours(working_hours: dict):
     """Validar formato HH:MM y que la hora de apertura sea menor al cierre."""
     if not working_hours:
@@ -694,34 +705,123 @@ async def earn_points_from_appointment(request: AppointmentEarnRequest):
 
     return wallet
 
+# ==================== CLIENT LOGS ====================
+
+@api_router.post("/logs")
+async def ingest_client_log(entry: ClientLog):
+    try:
+        payload = entry.dict()
+        await db.client_logs.insert_one({**payload, "ingested_at": datetime.now(timezone.utc)})
+        log_message = f"Client log [{entry.level}] - {entry.message} | context={entry.context} | screen={entry.screen}"
+        if entry.level.lower() in ("warn", "warning"):
+            logger.warning(log_message)
+        elif entry.level.lower() == "info":
+            logger.info(log_message)
+        else:
+            logger.error(log_message)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Error ingesting client log: {e}")
+        raise HTTPException(status_code=500, detail="Failed to ingest log")
+
 # ==================== ADMIN DASHBOARD ====================
 
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(shop_id: str):
     try:
-        # Count appointments by status
-        total_appointments = await db.appointments.count_documents({"shop_id": shop_id})
-        completed_appointments = await db.appointments.count_documents({
-            "shop_id": shop_id,
-            "status": "completed"
-        })
-        
-        # Count barbers
+        shop = await db.barbershops.find_one({"shop_id": shop_id}, {"_id": 0, "capacity": 1})
+        capacity = shop.get("capacity") if shop else None
+
+        # Get all appointments for the shop
+        appointments = await db.appointments.find({"shop_id": shop_id}).to_list(length=None)
+
+        total_appointments = len(appointments)
+        completed_appointments = len([a for a in appointments if a.get("status") == "completed"])
         total_barbers = await db.barbers.count_documents({"shop_id": shop_id})
-        
-        # Get today's appointments
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = today_start + timedelta(days=1)
-        today_appointments = await db.appointments.count_documents({
-            "shop_id": shop_id,
-            "scheduled_time": {"$gte": today_start, "$lt": today_end}
-        })
-        
+
+        today_appointments = [
+            a for a in appointments
+            if today_start <= a.get("scheduled_time", today_start) < today_end
+        ]
+        today_completed = [a for a in today_appointments if a.get("status") == "completed"]
+
+        status_breakdown = {
+            "scheduled": len([a for a in today_appointments if a.get("status") == "scheduled"]),
+            "completed": len(today_completed),
+            "cancelled": len([a for a in today_appointments if a.get("status") == "cancelled"]),
+            "in_progress": len([a for a in today_appointments if a.get("status") == "in_progress"]),
+        }
+
+        # Compute ticket average and top services
+        service_ids = list({a.get("service_id") for a in appointments if a.get("service_id")})
+        services = await db.services.find(
+            {"shop_id": shop_id, "service_id": {"$in": service_ids}},
+            {"_id": 0, "service_id": 1, "name": 1, "price": 1}
+        ).to_list(length=None)
+        service_lookup = {s["service_id"]: s for s in services}
+
+        revenue_today = 0.0
+        for appt in today_completed:
+            service = service_lookup.get(appt.get("service_id"))
+            if service:
+                revenue_today += float(service.get("price", 0))
+
+        ticket_average = 0.0
+        if today_completed:
+            ticket_average = revenue_today / len(today_completed)
+
+        service_counts: Dict[str, int] = {}
+        for appt in appointments:
+            service_id = appt.get("service_id")
+            if service_id:
+                service_counts[service_id] = service_counts.get(service_id, 0) + 1
+
+        top_services = [
+            {
+                "service_id": sid,
+                "name": service_lookup.get(sid, {}).get("name", "Servicio"),
+                "count": count,
+                "price": service_lookup.get(sid, {}).get("price"),
+            }
+            for sid, count in sorted(service_counts.items(), key=lambda item: item[1], reverse=True)[:5]
+        ]
+
+        occupancy_rate = None
+        if capacity and capacity > 0:
+            occupancy_rate = min(100.0, (len(today_appointments) / capacity) * 100)
+
+        recent_appointments = sorted(
+            appointments,
+            key=lambda a: a.get("scheduled_time", today_start),
+            reverse=True,
+        )[:5]
+
+        safe_recent = [
+            {
+                "appointment_id": appt.get("appointment_id"),
+                "scheduled_time": appt.get("scheduled_time"),
+                "status": appt.get("status"),
+            }
+            for appt in recent_appointments
+        ]
+
         return {
             "total_appointments": total_appointments,
             "completed_appointments": completed_appointments,
             "total_barbers": total_barbers,
-            "today_appointments": today_appointments
+            "today_appointments": len(today_appointments),
+            "status_breakdown": status_breakdown,
+            "capacity": capacity,
+            "occupancy_rate": occupancy_rate,
+            "revenue_today": revenue_today,
+            "ticket_average": ticket_average,
+            "top_services": top_services,
+            "recent_appointments": safe_recent,
+            "last_updated": now,
         }
     except Exception as e:
         logger.error(f"Error getting dashboard stats: {e}")
