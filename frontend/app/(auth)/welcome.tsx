@@ -15,6 +15,23 @@ const tileShadow = shadows.elevated;
 export default function WelcomeScreen() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const features = [
+    {
+      icon: 'calendar-clear',
+      title: 'Agenda inteligente',
+      text: 'Bloques, recordatorios y disponibilidad clara.',
+    },
+    {
+      icon: 'flash',
+      title: 'IA en el flujo',
+      text: 'Ideas de estilos y respuestas rápidas para clientes.',
+    },
+    {
+      icon: 'shield-checkmark',
+      title: 'Seguridad total',
+      text: 'Autenticación con correo, teléfono o Google.',
+    },
+  ];
 
   if (!isLoading && user) {
     return <Redirect href={getRedirectPath(user)} />;
@@ -44,27 +61,17 @@ export default function WelcomeScreen() {
         </View>
 
         <View style={styles.tiles}>
-          <View style={styles.tile}>
-            <Ionicons name="calendar-clear" size={24} color="#0B1220" />
-            <View>
-              <Text style={styles.tileTitle}>Agenda inteligente</Text>
-              <Text style={styles.tileText}>Bloques, recordatorios y disponibilidad clara.</Text>
+          {features.map(feature => (
+            <View key={feature.title} style={styles.tile}>
+              <View style={styles.tileIcon}> 
+                <Ionicons name={feature.icon as any} size={18} color="#0B1220" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.tileTitle}>{feature.title}</Text>
+                <Text style={styles.tileText}>{feature.text}</Text>
+              </View>
             </View>
-          </View>
-          <View style={styles.tile}>
-            <Ionicons name="flash" size={24} color="#0B1220" />
-            <View>
-              <Text style={styles.tileTitle}>IA en el flujo</Text>
-              <Text style={styles.tileText}>Ideas de estilos y respuestas rápidas para clientes.</Text>
-            </View>
-          </View>
-          <View style={styles.tile}>
-            <Ionicons name="shield-checkmark" size={24} color="#0B1220" />
-            <View>
-              <Text style={styles.tileTitle}>Seguridad total</Text>
-              <Text style={styles.tileText}>Autenticación con correo, teléfono o Google.</Text>
-            </View>
-          </View>
+          ))}
         </View>
 
         <View style={styles.actions}>
@@ -149,21 +156,31 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   tile: {
-    backgroundColor: '#FACC15',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 18,
     padding: 14,
     flexDirection: 'row',
     gap: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     ...tileShadow,
   },
+  tileIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#FACC15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   tileTitle: {
-    color: '#0B1220',
+    color: '#F8FAFC',
     fontSize: 16,
     fontWeight: '800',
   },
   tileText: {
-    color: '#111827',
+    color: '#CBD5E1',
     fontSize: 14,
   },
   actions: {

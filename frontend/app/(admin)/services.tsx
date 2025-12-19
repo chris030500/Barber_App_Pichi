@@ -432,10 +432,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
   addButton: {
     width: 40,
     height: 40,
@@ -608,22 +604,6 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     ...typography.body,
     color: palette.textSecondary,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emptyCard: {
-    margin: 16,
-    gap: 8,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#475569',
     textAlign: 'center',
     marginBottom: 8,
   },

@@ -1,13 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, Alert, Platform, ImageBackground } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRedirectPath } from '../../utils/navigation';
+import { shadows } from '../../styles/theme';
+
+const badgeShadow = shadows.soft;
 
 export default function PhoneLoginScreen() {
   const router = useRouter();
@@ -74,162 +78,212 @@ export default function PhoneLoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAwareScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.header}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="phone-portrait" size={48} color="#2563EB" />
-          </View>
-          <Text style={styles.title}>
-            {step === 'phone' ? 'Ingresa tu teléfono' : 'Verifica tu código'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {step === 'phone' 
-              ? 'Te enviaremos un código SMS para verificar tu identidad'
-              : `Enviamos un código al ${phoneNumber}`
-            }
-          </Text>
-        </View>
+    <ImageBackground
+      source={require('../../assets/images/splash-image.png')}
+      style={styles.background}
+      imageStyle={styles.backgroundImage}
+      blurRadius={24}
+    >
+      <StatusBar style="light" />
+      <SafeAreaView style={styles.container}>
+        <KeyboardAwareScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.header}>
+            <View style={styles.logoRow}>
+              <View style={styles.logoBadge}>
+                <Ionicons name="phone-portrait" size={24} color="#0B1220" />
+              </View>
+              <View>
+                <Text style={styles.brand}>BarberShop</Text>
+                <Text style={styles.tagline}>Verificación rápida y segura</Text>
+              </View>
+            </View>
 
-        {Platform.OS !== 'web' && (
-          <View style={styles.warningCard}>
-            <Ionicons name="information-circle" size={20} color="#F59E0B" />
-            <Text style={styles.warningText}>
-              La verificación por SMS funciona mejor en la versión web
+            <Text style={styles.title}>
+              {step === 'phone' ? 'Ingresa tu teléfono' : 'Verifica tu código'}
+            </Text>
+            <Text style={styles.subtitle}>
+              {step === 'phone'
+                ? 'Te enviaremos un código SMS para verificar tu identidad'
+                : `Enviamos un código al ${phoneNumber}`}
             </Text>
           </View>
-        )}
 
-        <View style={styles.form}>
-          {step === 'phone' ? (
-            <>
-              <View style={styles.phoneInputContainer}>
-                <View style={styles.countryCode}>
-                  <Text style={styles.countryCodeText}>🇲🇽 +52</Text>
-                </View>
-                <View style={styles.phoneInput}>
-                  <Input
-                    label="Número de teléfono"
-                    value={phoneNumber}
-                    onChangeText={setPhoneNumber}
-                    placeholder="55 1234 5678"
-                    keyboardType="phone-pad"
-                    maxLength={15}
-                  />
-                </View>
+          <View style={styles.card}>
+            {Platform.OS !== 'web' && (
+              <View style={styles.warningCard}>
+                <Ionicons name="information-circle" size={18} color="#F8FAFC" />
+                <Text style={styles.warningText}>
+                  La verificación por SMS funciona mejor en la versión web
+                </Text>
               </View>
+            )}
 
-              <Button
-                title="Enviar Código SMS"
-                onPress={handleSendCode}
-                size="large"
-                loading={loading}
-                disabled={loading || phoneNumber.length < 10}
-                style={styles.button}
-              />
-            </>
-          ) : (
-            <>
-              <Input
-                label="Código de verificación"
-                value={verificationCode}
-                onChangeText={setVerificationCode}
-                placeholder="123456"
-                keyboardType="number-pad"
-                maxLength={6}
-              />
-              
-              <Text style={styles.codeHint}>
-                Ingresa el código de 6 dígitos que recibiste por SMS
-              </Text>
+            <View style={styles.form}>
+              {step === 'phone' ? (
+                <>
+                  <View style={styles.phoneInputContainer}>
+                    <View style={styles.countryCode}>
+                      <Text style={styles.countryCodeText}>🇲🇽 +52</Text>
+                    </View>
+                    <View style={styles.phoneInput}>
+                      <Input
+                        label="Número de teléfono"
+                        value={phoneNumber}
+                        onChangeText={setPhoneNumber}
+                        placeholder="55 1234 5678"
+                        keyboardType="phone-pad"
+                        maxLength={15}
+                        variant="dark"
+                      />
+                    </View>
+                  </View>
 
-              <Button
-                title="Verificar Código"
-                onPress={handleVerifyCode}
-                size="large"
-                loading={loading}
-                disabled={loading || verificationCode.length < 6}
-                style={styles.button}
-              />
+                  <Button
+                    title="Enviar Código SMS"
+                    onPress={handleSendCode}
+                    size="large"
+                    loading={loading}
+                    disabled={loading || phoneNumber.length < 10}
+                    style={styles.button}
+                    textStyle={styles.buttonText}
+                  />
+                </>
+              ) : (
+                <>
+                  <Input
+                    label="Código de verificación"
+                    value={verificationCode}
+                    onChangeText={setVerificationCode}
+                    placeholder="123456"
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    variant="dark"
+                  />
 
-              <Button
-                title="Reenviar Código"
-                onPress={() => setStep('phone')}
-                variant="outline"
-                size="medium"
-                style={styles.resendButton}
-              />
-            </>
-          )}
-        </View>
+                  <Text style={styles.codeHint}>
+                    Ingresa el código de 6 dígitos que recibiste por SMS
+                  </Text>
 
-        <Button
-          title="← Volver al inicio de sesión"
-          onPress={handleBack}
-          variant="outline"
-          size="medium"
-          style={styles.backButton}
-        />
+                  <Button
+                    title="Verificar Código"
+                    onPress={handleVerifyCode}
+                    size="large"
+                    loading={loading}
+                    disabled={loading || verificationCode.length < 6}
+                    style={styles.button}
+                    textStyle={styles.buttonText}
+                  />
 
-        {/* Hidden reCAPTCHA container for web */}
-        {Platform.OS === 'web' && <View nativeID="recaptcha-container" />}
-      </KeyboardAwareScrollView>
-    </SafeAreaView>
+                  <Button
+                    title="Reenviar Código"
+                    onPress={() => setStep('phone')}
+                    variant="outline"
+                    size="medium"
+                    style={styles.resendButton}
+                    textStyle={styles.resendText}
+                  />
+                </>
+              )}
+            </View>
+
+            <Button
+              title="← Volver al inicio de sesión"
+              onPress={handleBack}
+              variant="outline"
+              size="medium"
+              style={styles.backButton}
+              textStyle={styles.resendText}
+            />
+          </View>
+
+          {/* Hidden reCAPTCHA container for web */}
+          {Platform.OS === 'web' && <View nativeID="recaptcha-container" />}
+        </KeyboardAwareScrollView>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+    backgroundColor: '#0B1220',
+  },
+  backgroundImage: {
+    opacity: 0.18,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
     paddingVertical: 32,
+    gap: 16,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 32,
+    gap: 10,
+    marginBottom: 10,
   },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#EFF6FF',
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  logoBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#FACC15',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    ...badgeShadow,
+  },
+  brand: {
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  tagline: {
+    color: '#CBD5E1',
+    fontSize: 13,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 8,
+    fontWeight: '800',
+    color: '#E2E8F0',
+    letterSpacing: 0.2,
   },
   subtitle: {
     fontSize: 14,
-    color: '#64748B',
-    textAlign: 'center',
+    color: '#94A3B8',
+    textAlign: 'left',
     lineHeight: 20,
-    paddingHorizontal: 16,
+    maxWidth: 520,
+  },
+  card: {
+    backgroundColor: 'rgba(15, 23, 42, 0.82)',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(226, 232, 240, 0.1)',
+    gap: 14,
   },
   warningCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     padding: 12,
-    borderRadius: 8,
-    marginBottom: 24,
+    borderRadius: 12,
   },
   warningText: {
     flex: 1,
     fontSize: 13,
-    color: '#92400E',
+    color: '#E2E8F0',
   },
   form: {
     flex: 1,
@@ -240,34 +294,44 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   countryCode: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 14,
     paddingHorizontal: 12,
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255,255,255,0.12)',
     height: 48,
     marginTop: 24,
   },
   countryCodeText: {
     fontSize: 14,
-    color: '#1E293B',
+    color: '#E2E8F0',
   },
   phoneInput: {
     flex: 1,
   },
   button: {
     marginTop: 8,
+    backgroundColor: '#2563EB',
+  },
+  buttonText: {
+    color: '#F8FAFC',
+    letterSpacing: 0.2,
   },
   codeHint: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#CBD5E1',
     textAlign: 'center',
   },
   resendButton: {
     marginTop: 8,
+    borderColor: 'rgba(255,255,255,0.24)',
+  },
+  resendText: {
+    color: '#E2E8F0',
   },
   backButton: {
-    marginTop: 24,
+    marginTop: 12,
+    borderColor: 'rgba(255,255,255,0.24)',
   },
 });
