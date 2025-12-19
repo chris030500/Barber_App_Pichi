@@ -75,6 +75,7 @@ class Barbershop(BaseModel):
     photos: List[str] = Field(default_factory=list)  # base64 images
     working_hours: dict = Field(default_factory=dict)  # {"monday": {"open": "09:00", "close": "18:00"}, ...}
     location: Optional[dict] = None  # {"lat": float, "lng": float}
+    capacity: Optional[int] = Field(default=None, ge=1, description="Cantidad de sillas o citas simultáneas")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class BarbershopCreate(BaseModel):
@@ -84,6 +85,7 @@ class BarbershopCreate(BaseModel):
     phone: str
     description: Optional[str] = None
     working_hours: dict = Field(default_factory=dict)
+    capacity: Optional[int] = Field(default=None, ge=1)
 
 class Barber(BaseModel):
     barber_id: str = Field(default_factory=lambda: f"barber_{uuid.uuid4().hex[:12]}")
@@ -167,6 +169,31 @@ class PushTokenCreate(BaseModel):
     platform: str
     device_info: Optional[dict] = None
 
+
+def validate_working_hours(working_hours: dict):
+    """Validar formato HH:MM y que la hora de apertura sea menor al cierre."""
+    if not working_hours:
+        return
+
+    def _valid_time(value: str) -> bool:
+        if not isinstance(value, str) or len(value) != 5 or value[2] != ":":
+            return False
+        hh, mm = value.split(":")
+        return hh.isdigit() and mm.isdigit() and 0 <= int(hh) < 24 and 0 <= int(mm) < 60
+
+    for day, schedule in working_hours.items():
+        if not isinstance(schedule, dict):
+            raise HTTPException(status_code=400, detail=f"Horario inválido para {day}")
+
+        open_time = schedule.get("open")
+        close_time = schedule.get("close")
+
+        if not (open_time and close_time and _valid_time(open_time) and _valid_time(close_time)):
+            raise HTTPException(status_code=400, detail=f"Formato de horario inválido para {day}. Usa HH:MM")
+
+        if open_time >= close_time:
+            raise HTTPException(status_code=400, detail=f"La hora de apertura debe ser menor a cierre para {day}")
+
 # ==================== ENDPOINTS ====================
 
 @api_router.get("/")
@@ -207,6 +234,7 @@ async def list_users(role: Optional[str] = None, email: Optional[str] = None, li
 @api_router.post("/barbershops", response_model=Barbershop)
 async def create_barbershop(shop_data: BarbershopCreate):
     try:
+        validate_working_hours(shop_data.working_hours)
         shop = Barbershop(**shop_data.dict())
         await db.barbershops.insert_one(shop.dict())
         return shop
@@ -228,6 +256,12 @@ async def list_barbershops(limit: int = 100):
 
 @api_router.put("/barbershops/{shop_id}", response_model=Barbershop)
 async def update_barbershop(shop_id: str, updates: dict):
+    if "working_hours" in updates:
+        validate_working_hours(updates.get("working_hours") or {})
+
+    if "capacity" in updates and updates.get("capacity") is not None and updates.get("capacity") < 1:
+        raise HTTPException(status_code=400, detail="La capacidad debe ser mayor a 0")
+
     result = await db.barbershops.update_one(
         {"shop_id": shop_id},
         {"$set": updates}
@@ -236,6 +270,18 @@ async def update_barbershop(shop_id: str, updates: dict):
         raise HTTPException(status_code=404, detail="Barbershop not found")
     shop = await db.barbershops.find_one({"shop_id": shop_id}, {"_id": 0})
     return shop
+
+
+@api_router.delete("/barbershops/{shop_id}")
+async def delete_barbershop(shop_id: str):
+    result = await db.barbershops.delete_one({"shop_id": shop_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Barbershop not found")
+
+    await db.barbers.delete_many({"shop_id": shop_id})
+    await db.services.delete_many({"shop_id": shop_id})
+
+    return {"message": "Barbershop deleted successfully"}
 
 # ==================== BARBERS ====================
 
@@ -273,6 +319,14 @@ async def update_barber(barber_id: str, updates: dict):
     barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
     return barber
 
+
+@api_router.delete("/barbers/{barber_id}")
+async def delete_barber(barber_id: str):
+    result = await db.barbers.delete_one({"barber_id": barber_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Barber not found")
+    return {"message": "Barber deleted successfully"}
+
 # ==================== SERVICES ====================
 
 @api_router.post("/services", response_model=Service)
@@ -297,6 +351,26 @@ async def list_services(shop_id: Optional[str] = None, limit: int = 100):
     query = {"shop_id": shop_id} if shop_id else {}
     services = await db.services.find(query, {"_id": 0}).limit(limit).to_list(limit)
     return services
+
+
+@api_router.put("/services/{service_id}", response_model=Service)
+async def update_service(service_id: str, updates: dict):
+    result = await db.services.update_one(
+        {"service_id": service_id},
+        {"$set": updates}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Service not found")
+    service = await db.services.find_one({"service_id": service_id}, {"_id": 0})
+    return service
+
+
+@api_router.delete("/services/{service_id}")
+async def delete_service(service_id: str):
+    result = await db.services.delete_one({"service_id": service_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Service not found")
+    return {"message": "Service deleted successfully"}
 
 # ==================== APPOINTMENTS ====================
 

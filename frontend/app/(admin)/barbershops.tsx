@@ -17,6 +17,7 @@ interface Barbershop {
   phone: string;
   description?: string;
   working_hours?: Record<string, any>;
+  capacity?: number;
 }
 
 export default function AdminBarbershopsScreen() {
@@ -30,6 +31,9 @@ export default function AdminBarbershopsScreen() {
   const [formAddress, setFormAddress] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formDescription, setFormDescription] = useState('');
+  const [formOpenTime, setFormOpenTime] = useState('09:00');
+  const [formCloseTime, setFormCloseTime] = useState('18:00');
+  const [formCapacity, setFormCapacity] = useState('4');
 
   useEffect(() => {
     loadShops();
@@ -52,6 +56,9 @@ export default function AdminBarbershopsScreen() {
     setFormAddress('');
     setFormPhone('');
     setFormDescription('');
+    setFormOpenTime('09:00');
+    setFormCloseTime('18:00');
+    setFormCapacity('4');
     setModalVisible(true);
   };
 
@@ -61,14 +68,46 @@ export default function AdminBarbershopsScreen() {
     setFormAddress(shop.address);
     setFormPhone(shop.phone);
     setFormDescription(shop.description || '');
+    const hours = shop.working_hours?.monday || shop.working_hours?.lunes || {};
+    setFormOpenTime(hours.open || '09:00');
+    setFormCloseTime(hours.close || '18:00');
+    setFormCapacity(shop.capacity ? String(shop.capacity) : '4');
     setModalVisible(true);
   };
 
   const saveShop = async () => {
+    const timeRegex = /^\d{2}:\d{2}$/;
+
     if (!formName || !formAddress || !formPhone) {
       Alert.alert('Campos requeridos', 'Completa el nombre, dirección y teléfono.');
       return;
     }
+
+    if (!timeRegex.test(formOpenTime) || !timeRegex.test(formCloseTime)) {
+      Alert.alert('Horario inválido', 'Usa el formato HH:MM para apertura y cierre.');
+      return;
+    }
+
+    if (formOpenTime >= formCloseTime) {
+      Alert.alert('Horario inválido', 'La hora de apertura debe ser menor a la de cierre.');
+      return;
+    }
+
+    const numericCapacity = parseInt(formCapacity, 10);
+    if (Number.isNaN(numericCapacity) || numericCapacity < 1) {
+      Alert.alert('Capacidad inválida', 'Indica una capacidad mínima de 1.');
+      return;
+    }
+
+    const working_hours = {
+      monday: { open: formOpenTime, close: formCloseTime },
+      tuesday: { open: formOpenTime, close: formCloseTime },
+      wednesday: { open: formOpenTime, close: formCloseTime },
+      thursday: { open: formOpenTime, close: formCloseTime },
+      friday: { open: formOpenTime, close: formCloseTime },
+      saturday: { open: formOpenTime, close: formCloseTime },
+      sunday: { open: formOpenTime, close: formCloseTime },
+    };
 
     const payload = {
       name: formName,
@@ -76,7 +115,8 @@ export default function AdminBarbershopsScreen() {
       phone: formPhone,
       description: formDescription,
       owner_user_id: editingShop?.owner_user_id || user?.user_id || `owner_${Date.now()}`,
-      working_hours: editingShop?.working_hours || {},
+      working_hours,
+      capacity: numericCapacity,
     };
 
     try {
@@ -98,6 +138,29 @@ export default function AdminBarbershopsScreen() {
     }
   };
 
+  const deleteShop = (shop: Barbershop) => {
+    Alert.alert(
+      'Eliminar barbería',
+      'Esta acción eliminará la barbería y sus barberos/servicios asociados. ¿Continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await axios.delete(`${BACKEND_URL}/api/barbershops/${shop.shop_id}`);
+              setShops((prev) => prev.filter((s) => s.shop_id !== shop.shop_id));
+              Alert.alert('Éxito', 'Barbería eliminada');
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo eliminar la barbería');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const renderShop = ({ item }: { item: Barbershop }) => (
     <Card style={styles.shopCard}>
       <View style={styles.shopHeader}>
@@ -108,6 +171,10 @@ export default function AdminBarbershopsScreen() {
           <Text style={styles.shopName}>{item.name}</Text>
           <Text style={styles.shopAddress}>{item.address}</Text>
           <Text style={styles.shopPhone}>{item.phone}</Text>
+          <Text style={styles.shopMeta}>Capacidad: {item.capacity ?? '—'} sillas</Text>
+          <Text style={styles.shopMeta}>
+            Horario: {item.working_hours?.monday?.open || '—'} - {item.working_hours?.monday?.close || '—'}
+          </Text>
         </View>
         <TouchableOpacity onPress={() => openEditModal(item)}>
           <Ionicons name="pencil" size={20} color={palette.accent} />
@@ -125,6 +192,9 @@ export default function AdminBarbershopsScreen() {
           <Ionicons name="time" size={16} color={palette.textSecondary} />
           <Text style={styles.metaText}>Horario configurado</Text>
         </View>
+        <TouchableOpacity onPress={() => deleteShop(item)} style={styles.deleteButton}>
+          <Ionicons name="trash" size={18} color="#EF4444" />
+        </TouchableOpacity>
       </View>
     </Card>
   );
@@ -205,6 +275,36 @@ export default function AdminBarbershopsScreen() {
               onChangeText={setFormPhone}
               keyboardType="phone-pad"
             />
+            <View style={styles.row}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>Apertura</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="09:00"
+                  value={formOpenTime}
+                  onChangeText={setFormOpenTime}
+                />
+              </View>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>Cierre</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="18:00"
+                  value={formCloseTime}
+                  onChangeText={setFormCloseTime}
+                />
+              </View>
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Capacidad (sillas o citas simultáneas)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="4"
+                keyboardType="numeric"
+                value={formCapacity}
+                onChangeText={setFormCapacity}
+              />
+            </View>
             <TextInput
               style={[styles.input, styles.textArea]}
               placeholder="Descripción"
@@ -388,9 +488,31 @@ const styles = StyleSheet.create({
     height: 96,
     textAlignVertical: 'top',
   },
+  inputGroup: {
+    gap: 6,
+  },
+  inputLabel: {
+    ...typography.label,
+    color: palette.textSecondary,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  shopMeta: {
+    ...typography.body,
+    color: palette.textSecondary,
+    marginTop: 2,
+  },
+  deleteButton: {
+    marginLeft: 'auto',
+    padding: 6,
+    borderRadius: 10,
+    backgroundColor: palette.backgroundAlt,
   },
 });

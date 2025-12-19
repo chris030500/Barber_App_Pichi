@@ -54,6 +54,18 @@ export default function AdminBarbersScreen() {
   }, []);
 
   useEffect(() => {
+    if (shops.length === 0) {
+      setSelectedShopId(null);
+      return;
+    }
+
+    const exists = shops.some((shop) => shop.shop_id === selectedShopId);
+    if (!exists) {
+      setSelectedShopId(shops[0].shop_id);
+    }
+  }, [shops]);
+
+  useEffect(() => {
     if (selectedShopId) {
       loadBarbers(selectedShopId);
     } else {
