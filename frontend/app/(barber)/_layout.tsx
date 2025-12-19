@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { palette } from '../../styles/theme';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function BarberLayout() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -11,7 +12,7 @@ export default function BarberLayout() {
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || (user && user.role !== 'barber'))) {
       console.log('🔴 BarberLayout: Unauthorized access, redirecting to login');
-      router.replace('/(auth)/login');
+      router.replace('/login');
     }
   }, [isLoading, isAuthenticated, user]);
 
