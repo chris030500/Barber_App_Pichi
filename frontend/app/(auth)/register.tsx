@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Alert, ImageBackground, TouchableOpacity } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -77,6 +78,7 @@ export default function RegisterScreen() {
       imageStyle={styles.backgroundImage}
       blurRadius={26}
     >
+      <StatusBar style="light" />
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAwareScrollView
           contentContainerStyle={styles.scrollContent}
@@ -191,6 +193,7 @@ export default function RegisterScreen() {
               loading={loading || authLoading}
               disabled={disableActions}
               style={styles.button}
+              textStyle={styles.buttonText}
             />
 
             <TouchableOpacity style={styles.secondaryAction} onPress={handleBack} disabled={disableActions}>
@@ -207,6 +210,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
+    backgroundColor: '#0B1220',
   },
   backgroundImage: {
     opacity: 0.2,
@@ -231,9 +235,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   logoBadge: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#FACC15',
     padding: 12,
     borderRadius: 12,
+    ...roleShadow,
   },
   brand: {
     fontSize: 18,
@@ -251,6 +256,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#F8FAFC',
     textAlign: 'center',
+    letterSpacing: 0.2,
   },
   heroSub: {
     marginTop: 8,
@@ -258,21 +264,23 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     textAlign: 'center',
     lineHeight: 20,
+    maxWidth: 420,
   },
   card: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 20,
+    backgroundColor: 'rgba(15, 23, 42, 0.82)',
+    borderRadius: 22,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(226, 232, 240, 0.1)',
     gap: 8,
+    ...roleShadow,
   },
   cardHeader: {
     gap: 8,
   },
   pill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#A5B4FC',
+    backgroundColor: '#FACC15',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
@@ -327,8 +335,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   roleCardSelected: {
-    borderColor: '#8B5CF6',
-    backgroundColor: 'rgba(139,92,246,0.12)',
+    borderColor: '#2563EB',
+    backgroundColor: 'rgba(37,99,235,0.08)',
     ...roleShadow,
   },
   roleIconBadge: {
@@ -345,14 +353,19 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
   },
   roleTextSelected: {
-    color: '#C4B5FD',
+    color: '#BFDBFE',
   },
   roleDesc: {
     fontSize: 12,
-    color: '#A5B4FC',
+    color: '#CBD5E1',
   },
   button: {
     marginTop: 10,
+    backgroundColor: '#2563EB',
+  },
+  buttonText: {
+    color: '#F8FAFC',
+    letterSpacing: 0.2,
   },
   secondaryAction: {
     marginTop: 10,

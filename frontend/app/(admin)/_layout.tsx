@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { palette } from '../../styles/theme';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function AdminLayout() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -11,7 +12,7 @@ export default function AdminLayout() {
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || (user && user.role !== 'admin'))) {
       console.log('🔴 AdminLayout: Unauthorized access, redirecting to login');
-      router.replace('/(auth)/login');
+      router.replace('/login');
     }
   }, [isLoading, isAuthenticated, user]);
 
@@ -45,6 +46,15 @@ export default function AdminLayout() {
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="stats-chart" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="barbershops"
+        options={{
+          title: 'Barberías',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="business" size={size} color={color} />
           ),
         }}
       />
@@ -84,6 +94,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.background,
   },
 });
