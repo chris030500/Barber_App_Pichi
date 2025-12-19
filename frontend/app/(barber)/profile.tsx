@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import axios from 'axios';
-import Constants from 'expo-constants';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { shadows } from '../../styles/theme';
-
-const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+import { BACKEND_URL } from '../../utils/backendUrl';
 
 const badgeShadow = shadows.soft;
 const statShadow = shadows.soft;
@@ -26,11 +25,13 @@ interface BarberProfile {
 
 export default function BarberProfileScreen() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [barberProfile, setBarberProfile] = useState<BarberProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [bio, setBio] = useState('');
   const [specialtiesText, setSpecialtiesText] = useState('');
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -76,13 +77,40 @@ export default function BarberProfileScreen() {
     }
   };
 
+  const performLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+    } catch (error) {
+      console.error('❌ Error al cerrar sesión (barber):', error);
+      Alert.alert('Error', 'No se pudo cerrar sesión. Intenta de nuevo.');
+    }
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+      window.location.href = '/login';
+    } else {
+      router.replace('/login');
+    }
+
+    setIsLoggingOut(false);
+  };
+
   const handleLogout = () => {
     Alert.alert(
       'Cerrar Sesión',
       '¿Estás seguro que deseas cerrar sesión?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Cerrar Sesión', style: 'destructive', onPress: logout }
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: performLogout,
+        }
       ]
     );
   };
@@ -231,9 +259,11 @@ export default function BarberProfileScreen() {
           )}
 
           {/* Logout Button */}
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} disabled={isLoggingOut}>
             <Ionicons name="log-out-outline" size={24} color="#EF4444" />
-            <Text style={styles.logoutText}>Cerrar Sesión</Text>
+            <Text style={styles.logoutText}>
+              {isLoggingOut ? 'Cerrando sesión...' : 'Cerrar Sesión'}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

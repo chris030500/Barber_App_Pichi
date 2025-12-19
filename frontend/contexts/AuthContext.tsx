@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import Constants from 'expo-constants';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -19,9 +18,23 @@ import {
 } from 'firebase/auth';
 import { Platform } from 'react-native';
 import { auth } from '../config/firebase';
+import { BACKEND_URL, isUsingFallbackBackend } from '../utils/backendUrl';
 
-const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
-let warnedMissingBackend = false;
+let warnedMissingBackend = isUsingFallbackBackend;
+
+export const normalizeRole = (role?: string | null): User['role'] => {
+  const value = role?.toString().trim().toLowerCase();
+
+  if (value === 'admin' || value === 'administrator' || value === 'administrador') {
+    return 'admin';
+  }
+
+  if (value === 'barber' || value === 'barbero') {
+    return 'barber';
+  }
+
+  return 'client';
+};
 
 export interface User {
   user_id: string;
@@ -82,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user_id: fbUser.uid,
         email: fbUser.email || '',
         name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuario',
-        role: 'client',
+        role: normalizeRole((fbUser as any)?.role),
         phone: fbUser.phoneNumber || undefined,
         created_at: fbUser.metadata?.creationTime || new Date().toISOString(),
         picture: fbUser.photoURL || undefined,
@@ -98,18 +111,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           if (response.data && response.data.length > 0) {
             console.log('✅ User found in backend:', response.data[0]);
-            resolvedUser = response.data[0];
+            const backendUser = response.data[0];
+            resolvedUser = { ...backendUser, role: normalizeRole(backendUser.role) };
           } else {
             console.log('⚠️ User not found in backend, creating new user...');
             const newUserResponse = await axios.post(`${BACKEND_URL}/api/users`, {
               email: fbUser.email,
               name: fallbackUser.name,
-              role: 'client',
+              role: fallbackUser.role,
               phone: fallbackUser.phone,
               picture: fallbackUser.picture,
             });
             console.log('✅ New user created:', newUserResponse.data);
-            resolvedUser = newUserResponse.data;
+            resolvedUser = { ...newUserResponse.data, role: normalizeRole(newUserResponse.data?.role) };
           }
         } catch (error) {
           console.error('❌ Error fetching user data from backend:', error);
@@ -165,27 +179,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       console.log('✅ Profile updated');
 
+      const normalizedRole = normalizeRole(role);
+
       if (!BACKEND_URL) {
         console.warn('⚠️ BACKEND_URL is not configured. Registration will not persist to the backend.');
         setUser({
           user_id: userCredential.user.uid,
           email,
           name,
-          role: role as User['role'],
+          role: normalizedRole,
           created_at: userCredential.user.metadata?.creationTime || new Date().toISOString(),
         });
         return;
       }
 
       console.log('🔵 Creating user in backend...', `${BACKEND_URL}/api/users`);
+
       const response = await axios.post(`${BACKEND_URL}/api/users`, {
         email: email,
         name: name,
-        role: role,
+        role: normalizedRole,
       });
       console.log('✅ Backend user created:', response.data);
 
-      setUser(response.data);
+      setUser({ ...response.data, role: normalizedRole });
       console.log('✅ Registration completed successfully!');
     } catch (error: any) {
       throw new Error(getErrorMessage(error?.code));
@@ -262,14 +279,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await firebaseSignOut(auth);
+    console.log('🔵 Logout: iniciando proceso de cierre de sesión');
+    setAuthLoading(true);
+
+    // Limpia el estado local primero para evitar que la UI quede bloqueada si Firebase falla
     setUser(null);
     setFirebaseUser(null);
     await AsyncStorage.removeItem('user');
+
+    try {
+      await firebaseSignOut(auth);
+      console.log('✅ Logout: sesión de Firebase cerrada');
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const updateUser = (userData: Partial<User>) => {
-    setUser((prev) => (prev ? { ...prev, ...userData } : prev));
+    setUser((prev) => {
+      if (!prev) return prev;
+
+      const nextRole = userData.role ? normalizeRole(userData.role) : prev.role;
+      return { ...prev, ...userData, role: nextRole };
+    });
   };
 
   const getErrorMessage = (errorCode?: string): string => {

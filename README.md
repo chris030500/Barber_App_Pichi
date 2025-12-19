@@ -67,3 +67,12 @@ Guía rápida para levantar el backend (FastAPI) y el frontend (Expo) en tu comp
 ## Notas útiles
 - Los archivos `google-services.json` (Android) y `GoogleService-Info.plist` (iOS) ya están versionados para pruebas locales. Ajusta los IDs de proyecto si usas tu propio Firebase.
 - Si cambias el puerto del backend, actualiza `EXPO_PUBLIC_BACKEND_URL` para que la app consuma la API correctamente.
+- Para ver todas las colecciones en la base de datos cuando corres con Docker Compose:
+  1. Entra al contenedor de MongoDB: `docker exec -it <mongo-container> mongosh` (el nombre suele ser `barber_app_pichi-mongo-1`).
+  2. Selecciona la base usada por la app: `use ${DB_NAME:-barbershop_db}`.
+  3. Lista las colecciones disponibles: `show collections`.
+
+## Pruebas manuales rápidas
+- **Roles y navegación:** inicia sesión con un administrador y confirma que carga el layout de pestañas de admin; repite con un cliente y verifica que llegue al flujo `(client)`.
+- **Logout consistente:** en perfil de admin, cliente y barbero, pulsa “Cerrar sesión” y comprueba que regresa a `/login` tanto en web como en dispositivo/emulador.
+- **Notificaciones push:** prueba el registro de notificaciones solo en dispositivo físico; en web no debería montarse ningún listener ni pedir permisos.
