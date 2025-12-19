@@ -1,18 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import axios from 'axios';
-import Constants from 'expo-constants';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
-import { shadows } from '../../styles/theme';
-
-const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
-
-const badgeShadow = shadows.soft;
-const statShadow = shadows.soft;
+import { palette, typography, shadows } from '../../styles/theme';
+import { BACKEND_URL } from '../../utils/backendUrl';
 
 interface BarberProfile {
   barber_id: string;
@@ -26,11 +22,13 @@ interface BarberProfile {
 
 export default function BarberProfileScreen() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [barberProfile, setBarberProfile] = useState<BarberProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [bio, setBio] = useState('');
   const [specialtiesText, setSpecialtiesText] = useState('');
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -76,13 +74,40 @@ export default function BarberProfileScreen() {
     }
   };
 
+  const performLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+    } catch (error) {
+      console.error('❌ Error al cerrar sesión (barber):', error);
+      Alert.alert('Error', 'No se pudo cerrar sesión. Intenta de nuevo.');
+    }
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+      window.location.href = '/login';
+    } else {
+      router.replace('/login');
+    }
+
+    setIsLoggingOut(false);
+  };
+
   const handleLogout = () => {
     Alert.alert(
       'Cerrar Sesión',
       '¿Estás seguro que deseas cerrar sesión?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Cerrar Sesión', style: 'destructive', onPress: logout }
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: performLogout,
+        }
       ]
     );
   };
@@ -95,7 +120,7 @@ export default function BarberProfileScreen() {
           key={i}
           name={i <= rating ? 'star' : 'star-outline'}
           size={20}
-          color="#F59E0B"
+          color={palette.warning}
         />
       );
     }
@@ -104,22 +129,24 @@ export default function BarberProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
-              <Ionicons name="person" size={48} color="#FFFFFF" />
+              <Ionicons name="person" size={48} color={palette.textPrimary} />
             </View>
             <View style={styles.statusBadge}>
-              <View style={[
-                styles.statusDot, 
-                { backgroundColor: barberProfile?.status === 'available' ? '#10B981' : '#F59E0B' }
-              ]} />
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: barberProfile?.status === 'available' ? palette.success : palette.warning }
+                ]}
+              />
             </View>
           </View>
           <Text style={styles.name}>{user?.name || 'Barbero'}</Text>
           <Text style={styles.email}>{user?.email}</Text>
-          
+
           {barberProfile && (
             <View style={styles.ratingContainer}>
               <View style={styles.stars}>
@@ -133,44 +160,48 @@ export default function BarberProfileScreen() {
         </View>
 
         <View style={styles.content}>
-          {/* Stats Cards */}
           {barberProfile && (
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
-                <Ionicons name="star" size={24} color="#F59E0B" />
+                <Ionicons name="star" size={24} color={palette.warning} />
                 <Text style={styles.statNumber}>{barberProfile.rating.toFixed(1)}</Text>
                 <Text style={styles.statLabel}>Rating</Text>
               </View>
               <View style={styles.statCard}>
-                <Ionicons name="chatbubbles" size={24} color="#2563EB" />
+                <Ionicons name="chatbubbles" size={24} color={palette.accentSecondary} />
                 <Text style={styles.statNumber}>{barberProfile.total_reviews}</Text>
                 <Text style={styles.statLabel}>Reseñas</Text>
               </View>
               <View style={styles.statCard}>
-                <Ionicons name="cut" size={24} color="#10B981" />
+                <Ionicons name="cut" size={24} color={palette.success} />
                 <Text style={styles.statNumber}>{barberProfile.specialties?.length || 0}</Text>
                 <Text style={styles.statLabel}>Especialidades</Text>
               </View>
             </View>
           )}
 
-          {/* Bio Section */}
           <Card style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Biografía</Text>
+              <View style={styles.sectionTitleWrap}>
+                <View style={styles.sectionBadge}>
+                  <Ionicons name="book-outline" size={14} color={palette.accentSecondary} />
+                </View>
+                <Text style={styles.sectionTitle}>Biografía</Text>
+              </View>
               {!editing && (
                 <TouchableOpacity onPress={() => setEditing(true)}>
-                  <Ionicons name="pencil" size={20} color="#2563EB" />
+                  <Ionicons name="pencil" size={20} color={palette.accentSecondary} />
                 </TouchableOpacity>
               )}
             </View>
-            
+
             {editing ? (
               <TextInput
                 style={styles.bioInput}
                 value={bio}
                 onChangeText={setBio}
                 placeholder="Escribe una breve descripción sobre ti..."
+                placeholderTextColor={palette.textSecondary}
                 multiline
                 numberOfLines={4}
               />
@@ -181,18 +212,23 @@ export default function BarberProfileScreen() {
             )}
           </Card>
 
-          {/* Specialties Section */}
           <Card style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Especialidades</Text>
+              <View style={styles.sectionTitleWrap}>
+                <View style={styles.sectionBadgeAlt}>
+                  <Ionicons name="sparkles-outline" size={14} color={palette.accent} />
+                </View>
+                <Text style={styles.sectionTitle}>Especialidades</Text>
+              </View>
             </View>
-            
+
             {editing ? (
               <TextInput
                 style={styles.specialtiesInput}
                 value={specialtiesText}
                 onChangeText={setSpecialtiesText}
                 placeholder="Fade, Pompadour, Barba... (separadas por coma)"
+                placeholderTextColor={palette.textSecondary}
               />
             ) : (
               <View style={styles.specialtiesTags}>
@@ -230,10 +266,11 @@ export default function BarberProfileScreen() {
             </View>
           )}
 
-          {/* Logout Button */}
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={24} color="#EF4444" />
-            <Text style={styles.logoutText}>Cerrar Sesión</Text>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} disabled={isLoggingOut}>
+            <Ionicons name="log-out-outline" size={22} color={palette.danger} />
+            <Text style={styles.logoutText}>
+              {isLoggingOut ? 'Cerrando sesión...' : 'Cerrar Sesión'}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -244,14 +281,17 @@ export default function BarberProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
+  },
+  scrollContent: {
+    paddingBottom: 24,
   },
   header: {
     alignItems: 'center',
     paddingVertical: 32,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: palette.border,
   },
   avatarContainer: {
     position: 'relative',
@@ -261,7 +301,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#2563EB',
+    backgroundColor: palette.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -272,10 +312,10 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
-    ...badgeShadow,
+    ...shadows.soft,
   },
   statusDot: {
     width: 14,
@@ -283,13 +323,11 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   name: {
+    ...typography.heading,
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E293B',
   },
   email: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     marginTop: 4,
   },
   ratingContainer: {
@@ -301,12 +339,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   ratingText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
+    color: palette.textSecondary,
     marginTop: 4,
   },
   content: {
     padding: 16,
+    gap: 12,
   },
   statsRow: {
     flexDirection: 'row',
@@ -315,25 +354,30 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    ...statShadow,
+    borderWidth: 1,
+    borderColor: palette.border,
+    ...shadows.soft,
   },
   statNumber: {
+    ...typography.heading,
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    color: palette.textPrimary,
     marginTop: 8,
   },
   statLabel: {
-    fontSize: 11,
-    color: '#64748B',
+    ...typography.label,
+    color: palette.textSecondary,
     marginTop: 2,
   },
   section: {
     marginBottom: 16,
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
+    borderWidth: 1,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -341,31 +385,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  sectionTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   sectionTitle: {
+    ...typography.heading,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
+  },
+  sectionBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    backgroundColor: palette.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  sectionBadgeAlt: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    backgroundColor: palette.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   bioText: {
-    fontSize: 14,
-    color: '#475569',
+    ...typography.body,
+    color: palette.textPrimary,
     lineHeight: 22,
   },
   bioInput: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+    backgroundColor: palette.surfaceAlt,
+    borderRadius: 12,
     padding: 12,
-    fontSize: 14,
-    color: '#1E293B',
+    ...typography.body,
+    color: palette.textPrimary,
+    borderWidth: 1,
+    borderColor: palette.border,
     minHeight: 100,
     textAlignVertical: 'top',
   },
   specialtiesInput: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+    backgroundColor: palette.surfaceAlt,
+    borderRadius: 12,
     padding: 12,
-    fontSize: 14,
-    color: '#1E293B',
+    ...typography.body,
+    color: palette.textPrimary,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   specialtiesTags: {
     flexDirection: 'row',
@@ -373,19 +445,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tag: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: palette.surfaceAlt,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   tagText: {
-    fontSize: 13,
-    color: '#2563EB',
-    fontWeight: '500',
+    ...typography.label,
+    color: palette.accentSecondary,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#94A3B8',
+    ...typography.body,
+    color: palette.textSecondary,
   },
   editButtons: {
     flexDirection: 'row',
@@ -401,11 +474,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 16,
-    marginTop: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceAlt,
   },
   logoutText: {
-    fontSize: 16,
-    color: '#EF4444',
-    fontWeight: '500',
+    ...typography.subheading,
+    color: palette.danger,
   },
 });

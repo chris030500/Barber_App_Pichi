@@ -27,7 +27,7 @@ export default function ProfileScreen() {
       window.sessionStorage.clear();
       window.location.href = '/login';
     } else {
-      router.replace('/(auth)/login');
+      router.replace('/login');
     }
   };
 

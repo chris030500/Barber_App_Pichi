@@ -1,22 +1,37 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, Platform, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
+import Button from '../../components/ui/Button';
+import { palette, typography, shadows } from '../../styles/theme';
 
 export default function AdminProfileScreen() {
   const { user, logout } = useAuth();
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro que deseas cerrar sesión?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Cerrar Sesión', style: 'destructive', onPress: logout }
-      ]
-    );
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+    } catch (error) {
+      console.error('❌ Error al cerrar sesión:', error);
+      Alert.alert('Error', 'No se pudo cerrar sesión. Intenta de nuevo.');
+    }
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+      window.location.href = '/login';
+    } else {
+      router.replace('/login');
+    }
   };
 
   const menuItems = [
@@ -100,10 +115,15 @@ export default function AdminProfileScreen() {
         </Card>
 
         {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color="#EF4444" />
-          <Text style={styles.logoutText}>Cerrar Sesión</Text>
-        </TouchableOpacity>
+        <Button
+          title={isLoggingOut ? 'Cerrando sesión...' : '🚪 Cerrar Sesión'}
+          onPress={handleLogout}
+          disabled={isLoggingOut}
+          loading={isLoggingOut}
+          variant="danger"
+          style={styles.logoutButton}
+          textStyle={styles.logoutText}
+        />
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>BarberPro © 2025</Text>
@@ -116,14 +136,15 @@ export default function AdminProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
   },
   header: {
     alignItems: 'center',
     paddingVertical: 32,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surfaceAlt,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: palette.border,
+    gap: 8,
   },
   avatarContainer: {
     position: 'relative',
@@ -133,7 +154,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: '#2563EB',
+    backgroundColor: palette.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -144,71 +165,67 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: palette.background,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: palette.surfaceAlt,
   },
   name: {
+    ...typography.heading,
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#1E293B',
   },
   email: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     marginTop: 4,
   },
   roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: palette.backgroundAlt,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     marginTop: 12,
   },
   roleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#B45309',
+    ...typography.label,
+    color: palette.accent,
   },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 12,
     paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    ...typography.heading,
+    fontSize: 22,
   },
   statLabel: {
+    ...typography.body,
     fontSize: 12,
-    color: '#64748B',
     marginTop: 2,
   },
   statDivider: {
     width: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: palette.border,
   },
   menuSection: {
     paddingHorizontal: 16,
     paddingTop: 24,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748B',
+    ...typography.label,
     marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -216,16 +233,18 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     padding: 16,
     borderRadius: 12,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   menuIcon: {
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: palette.backgroundAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -234,18 +253,17 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   menuTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1E293B',
+    ...typography.heading,
+    fontSize: 16,
   },
   menuSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+    ...typography.body,
     marginTop: 2,
   },
   infoCard: {
     marginHorizontal: 16,
     marginTop: 16,
+    ...shadows.soft,
   },
   infoRow: {
     flexDirection: 'row',
@@ -253,36 +271,24 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   infoLabel: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
   },
   infoValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1E293B',
+    ...typography.label,
+    color: palette.textPrimary,
   },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
     marginHorizontal: 16,
     marginTop: 24,
-    paddingVertical: 16,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
   },
   logoutText: {
-    fontSize: 16,
-    color: '#EF4444',
-    fontWeight: '600',
+    color: palette.textPrimary,
   },
   footer: {
     alignItems: 'center',
     paddingVertical: 24,
   },
   footerText: {
-    fontSize: 12,
-    color: '#94A3B8',
+    ...typography.label,
   },
 });
