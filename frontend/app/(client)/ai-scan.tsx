@@ -14,18 +14,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import Constants from 'expo-constants';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
 import { palette, typography } from '../../styles/theme';
+import { BACKEND_URL } from '../../utils/backendUrl';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const API_URL =
-  Constants.expoConfig?.extra?.backendUrl ||
-  process.env.EXPO_PUBLIC_BACKEND_URL ||
-  'https://barberpro-7.preview.emergentagent.com';
+const API_URL = BACKEND_URL;
 
 interface HaircutStyle {
   name: string;

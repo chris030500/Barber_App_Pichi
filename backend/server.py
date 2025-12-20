@@ -57,6 +57,8 @@ class User(BaseModel):
     role: str = "client"  # client, barber, admin
     phone: Optional[str] = None
     barbershop_id: Optional[str] = None
+    referral_code: Optional[str] = None
+    referred_by: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserCreate(BaseModel):
@@ -72,9 +74,10 @@ class Barbershop(BaseModel):
     address: str
     phone: str
     description: Optional[str] = None
-    photos: List[str] = []  # base64 images
-    working_hours: dict = {}  # {"monday": {"open": "09:00", "close": "18:00"}, ...}
+    photos: List[str] = Field(default_factory=list)  # base64 images
+    working_hours: dict = Field(default_factory=dict)  # {"monday": {"open": "09:00", "close": "18:00"}, ...}
     location: Optional[dict] = None  # {"lat": float, "lng": float}
+    capacity: Optional[int] = Field(default=None, ge=1, description="Cantidad de sillas o citas simultáneas")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class BarbershopCreate(BaseModel):
@@ -83,16 +86,17 @@ class BarbershopCreate(BaseModel):
     address: str
     phone: str
     description: Optional[str] = None
-    working_hours: dict = {}
+    working_hours: dict = Field(default_factory=dict)
+    capacity: Optional[int] = Field(default=None, ge=1)
 
 class Barber(BaseModel):
     barber_id: str = Field(default_factory=lambda: f"barber_{uuid.uuid4().hex[:12]}")
     shop_id: str
     user_id: str
     bio: Optional[str] = None
-    specialties: List[str] = []
-    portfolio: List[str] = []  # base64 images
-    availability: dict = {}  # {"monday": ["09:00-12:00", "14:00-18:00"], ...}
+    specialties: List[str] = Field(default_factory=list)
+    portfolio: List[str] = Field(default_factory=list)  # base64 images
+    availability: dict = Field(default_factory=dict)  # {"monday": ["09:00-12:00", "14:00-18:00"], ...}
     status: str = "available"  # available, busy, unavailable
     rating: float = 0.0
     total_reviews: int = 0
@@ -102,8 +106,8 @@ class BarberCreate(BaseModel):
     shop_id: str
     user_id: str
     bio: Optional[str] = None
-    specialties: List[str] = []
-    availability: dict = {}
+    specialties: List[str] = Field(default_factory=list)
+    availability: dict = Field(default_factory=dict)
 
 class Service(BaseModel):
     service_id: str = Field(default_factory=lambda: f"service_{uuid.uuid4().hex[:12]}")
@@ -148,8 +152,8 @@ class ClientHistory(BaseModel):
     client_user_id: str
     barber_id: str
     appointment_id: str
-    photos: List[str] = []  # base64 images
-    preferences: dict = {}  # haircut preferences
+    photos: List[str] = Field(default_factory=list)  # base64 images
+    preferences: dict = Field(default_factory=dict)  # haircut preferences
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -167,6 +171,107 @@ class PushTokenCreate(BaseModel):
     platform: str
     device_info: Optional[dict] = None
 
+
+class LoyaltyRules(BaseModel):
+    rule_id: str = Field(default="default")
+    points_per_completed_appointment: int = Field(default=10, ge=0)
+    referral_bonus: int = Field(default=50, ge=0)
+    reward_threshold: int = Field(default=200, ge=1)
+    reward_description: str = Field(default="Corte gratis o upgrade de servicio")
+
+
+class LoyaltyWallet(BaseModel):
+    user_id: str
+    points: int = 0
+    referred_by: Optional[str] = None
+    history: List[dict] = Field(default_factory=list)
+
+
+class ReferralRequest(BaseModel):
+    user_id: str
+    referral_code: str
+
+
+class AppointmentEarnRequest(BaseModel):
+    appointment_id: str
+
+
+class ClientLog(BaseModel):
+    level: str = Field(default="error")
+    message: str
+    context: Optional[dict] = None
+    user_id: Optional[str] = None
+    stack: Optional[str] = None
+    platform: Optional[str] = None
+    screen: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+def validate_working_hours(working_hours: dict):
+    """Validar formato HH:MM y que la hora de apertura sea menor al cierre."""
+    if not working_hours:
+        return
+
+    def _valid_time(value: str) -> bool:
+        if not isinstance(value, str) or len(value) != 5 or value[2] != ":":
+            return False
+        hh, mm = value.split(":")
+        return hh.isdigit() and mm.isdigit() and 0 <= int(hh) < 24 and 0 <= int(mm) < 60
+
+    for day, schedule in working_hours.items():
+        if not isinstance(schedule, dict):
+            raise HTTPException(status_code=400, detail=f"Horario inválido para {day}")
+
+        open_time = schedule.get("open")
+        close_time = schedule.get("close")
+
+        if not (open_time and close_time and _valid_time(open_time) and _valid_time(close_time)):
+            raise HTTPException(status_code=400, detail=f"Formato de horario inválido para {day}. Usa HH:MM")
+
+        if open_time >= close_time:
+            raise HTTPException(status_code=400, detail=f"La hora de apertura debe ser menor a cierre para {day}")
+
+
+def generate_referral_code(email: str) -> str:
+    prefix = email.split("@")[0][:4].upper()
+    return f"{prefix}{uuid.uuid4().hex[:4].upper()}"
+
+
+async def ensure_loyalty_rules():
+    rules = await db.loyalty_rules.find_one({"rule_id": "default"}, {"_id": 0})
+    if not rules:
+        default_rules = LoyaltyRules().dict()
+        await db.loyalty_rules.insert_one(default_rules)
+        return default_rules
+    return rules
+
+
+async def ensure_wallet(user_id: str) -> dict:
+    wallet = await db.loyalty_wallets.find_one({"user_id": user_id}, {"_id": 0})
+    if not wallet:
+        wallet = LoyaltyWallet(user_id=user_id).dict()
+        await db.loyalty_wallets.insert_one(wallet)
+    return wallet
+
+
+async def send_push_notification(user_id: str, title: str, body: str):
+    try:
+        tokens = await db.push_tokens.find({"user_id": user_id}, {"_id": 0, "token": 1}).to_list(10)
+        if not tokens:
+            return
+
+        async with httpx.AsyncClient(timeout=5) as client_httpx:
+            for item in tokens:
+                payload = {
+                    "to": item.get("token"),
+                    "sound": "default",
+                    "title": title,
+                    "body": body,
+                }
+                await client_httpx.post("https://exp.host/--/api/v2/push/send", json=payload)
+    except Exception as e:
+        logger.warning(f"No se pudo enviar push: {e}")
+
 # ==================== ENDPOINTS ====================
 
 @api_router.get("/")
@@ -178,7 +283,9 @@ async def root():
 @api_router.post("/users", response_model=User)
 async def create_user(user_data: UserCreate):
     try:
-        user = User(**user_data.dict())
+        payload = user_data.dict()
+        payload["referral_code"] = generate_referral_code(user_data.email)
+        user = User(**payload)
         result = await db.users.insert_one(user.dict())
         return user
     except Exception as e:
@@ -190,6 +297,10 @@ async def get_user(user_id: str):
     user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if not user.get("referral_code"):
+        referral_code = generate_referral_code(user.get("email", "user"))
+        await db.users.update_one({"user_id": user_id}, {"$set": {"referral_code": referral_code}})
+        user["referral_code"] = referral_code
     return user
 
 @api_router.get("/users", response_model=List[User])
@@ -200,6 +311,11 @@ async def list_users(role: Optional[str] = None, email: Optional[str] = None, li
     if email:
         query["email"] = email
     users = await db.users.find(query, {"_id": 0}).limit(limit).to_list(limit)
+    for user in users:
+        if not user.get("referral_code"):
+            referral_code = generate_referral_code(user.get("email", "user"))
+            await db.users.update_one({"user_id": user.get("user_id")}, {"$set": {"referral_code": referral_code}})
+            user["referral_code"] = referral_code
     return users
 
 # ==================== BARBERSHOPS ====================
@@ -207,6 +323,7 @@ async def list_users(role: Optional[str] = None, email: Optional[str] = None, li
 @api_router.post("/barbershops", response_model=Barbershop)
 async def create_barbershop(shop_data: BarbershopCreate):
     try:
+        validate_working_hours(shop_data.working_hours)
         shop = Barbershop(**shop_data.dict())
         await db.barbershops.insert_one(shop.dict())
         return shop
@@ -228,6 +345,12 @@ async def list_barbershops(limit: int = 100):
 
 @api_router.put("/barbershops/{shop_id}", response_model=Barbershop)
 async def update_barbershop(shop_id: str, updates: dict):
+    if "working_hours" in updates:
+        validate_working_hours(updates.get("working_hours") or {})
+
+    if "capacity" in updates and updates.get("capacity") is not None and updates.get("capacity") < 1:
+        raise HTTPException(status_code=400, detail="La capacidad debe ser mayor a 0")
+
     result = await db.barbershops.update_one(
         {"shop_id": shop_id},
         {"$set": updates}
@@ -236,6 +359,18 @@ async def update_barbershop(shop_id: str, updates: dict):
         raise HTTPException(status_code=404, detail="Barbershop not found")
     shop = await db.barbershops.find_one({"shop_id": shop_id}, {"_id": 0})
     return shop
+
+
+@api_router.delete("/barbershops/{shop_id}")
+async def delete_barbershop(shop_id: str):
+    result = await db.barbershops.delete_one({"shop_id": shop_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Barbershop not found")
+
+    await db.barbers.delete_many({"shop_id": shop_id})
+    await db.services.delete_many({"shop_id": shop_id})
+
+    return {"message": "Barbershop deleted successfully"}
 
 # ==================== BARBERS ====================
 
@@ -273,6 +408,14 @@ async def update_barber(barber_id: str, updates: dict):
     barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
     return barber
 
+
+@api_router.delete("/barbers/{barber_id}")
+async def delete_barber(barber_id: str):
+    result = await db.barbers.delete_one({"barber_id": barber_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Barber not found")
+    return {"message": "Barber deleted successfully"}
+
 # ==================== SERVICES ====================
 
 @api_router.post("/services", response_model=Service)
@@ -297,6 +440,26 @@ async def list_services(shop_id: Optional[str] = None, limit: int = 100):
     query = {"shop_id": shop_id} if shop_id else {}
     services = await db.services.find(query, {"_id": 0}).limit(limit).to_list(limit)
     return services
+
+
+@api_router.put("/services/{service_id}", response_model=Service)
+async def update_service(service_id: str, updates: dict):
+    result = await db.services.update_one(
+        {"service_id": service_id},
+        {"$set": updates}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Service not found")
+    service = await db.services.find_one({"service_id": service_id}, {"_id": 0})
+    return service
+
+
+@api_router.delete("/services/{service_id}")
+async def delete_service(service_id: str):
+    result = await db.services.delete_one({"service_id": service_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Service not found")
+    return {"message": "Service deleted successfully"}
 
 # ==================== APPOINTMENTS ====================
 
@@ -405,34 +568,260 @@ async def get_user_tokens(user_id: str):
     ).to_list(100)
     return tokens
 
+# ==================== LOYALTY & REFERRALS ====================
+
+
+@api_router.get("/loyalty/rules", response_model=LoyaltyRules)
+async def get_loyalty_rules():
+    rules = await ensure_loyalty_rules()
+    return rules
+
+
+@api_router.put("/loyalty/rules", response_model=LoyaltyRules)
+async def update_loyalty_rules(updates: LoyaltyRules):
+    data = updates.dict()
+    data["rule_id"] = "default"
+    await db.loyalty_rules.update_one(
+        {"rule_id": "default"},
+        {"$set": data},
+        upsert=True,
+    )
+    return data
+
+
+@api_router.get("/loyalty/wallet/{user_id}", response_model=LoyaltyWallet)
+async def get_loyalty_wallet(user_id: str):
+    wallet = await ensure_wallet(user_id)
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "referred_by": 1})
+    if user:
+        wallet["referred_by"] = user.get("referred_by")
+    return wallet
+
+
+@api_router.post("/loyalty/referrals")
+async def register_referral(request: ReferralRequest):
+    user = await db.users.find_one({"user_id": request.user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    if user.get("referred_by"):
+        return {"message": "El usuario ya tiene un referido registrado"}
+
+    referrer = await db.users.find_one({"referral_code": request.referral_code})
+    if not referrer:
+        raise HTTPException(status_code=404, detail="Código de referido inválido")
+
+    await db.users.update_one({"user_id": request.user_id}, {"$set": {"referred_by": referrer.get("user_id")}})
+    await db.loyalty_wallets.update_one(
+        {"user_id": request.user_id},
+        {"$set": {"referred_by": referrer.get("user_id")}},
+        upsert=True,
+    )
+
+    return {"message": "Referido registrado"}
+
+
+@api_router.post("/loyalty/earn/appointment")
+async def earn_points_from_appointment(request: AppointmentEarnRequest):
+    appointment = await db.appointments.find_one({"appointment_id": request.appointment_id})
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Cita no encontrada")
+
+    if appointment.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="La cita debe estar completada para sumar puntos")
+
+    client_id = appointment.get("client_user_id")
+    if not client_id:
+        raise HTTPException(status_code=400, detail="La cita no tiene cliente asignado")
+
+    rules = await ensure_loyalty_rules()
+    wallet = await ensure_wallet(client_id)
+
+    # Evitar duplicados por la misma cita
+    already_recorded = any(
+        entry.get("source_id") == request.appointment_id and entry.get("type") == "appointment"
+        for entry in wallet.get("history", [])
+    )
+    if already_recorded:
+        return wallet
+
+    earned_points = rules.get("points_per_completed_appointment", 0)
+
+    wallet["points"] = wallet.get("points", 0) + earned_points
+    wallet.setdefault("history", []).append(
+        {
+            "type": "appointment",
+            "points": earned_points,
+            "source_id": request.appointment_id,
+            "created_at": datetime.now(timezone.utc),
+        }
+    )
+
+    await db.loyalty_wallets.update_one(
+        {"user_id": client_id},
+        {"$set": {"points": wallet["points"], "history": wallet["history"]}},
+        upsert=True,
+    )
+
+    # Bono por referido tras primera cita completada
+    client = await db.users.find_one({"user_id": client_id}, {"_id": 0})
+    referrer_id = client.get("referred_by") if client else None
+    if referrer_id:
+        referrer_wallet = await ensure_wallet(referrer_id)
+        has_reward = any(
+            entry.get("type") == "referral_bonus" and entry.get("source_id") == client_id
+            for entry in referrer_wallet.get("history", [])
+        )
+        if not has_reward:
+            bonus = rules.get("referral_bonus", 0)
+            referrer_wallet["points"] = referrer_wallet.get("points", 0) + bonus
+            referrer_wallet.setdefault("history", []).append(
+                {
+                    "type": "referral_bonus",
+                    "points": bonus,
+                    "source_id": client_id,
+                    "created_at": datetime.now(timezone.utc),
+                }
+            )
+            await db.loyalty_wallets.update_one(
+                {"user_id": referrer_id},
+                {"$set": {"points": referrer_wallet["points"], "history": referrer_wallet["history"]}},
+                upsert=True,
+            )
+
+            await send_push_notification(
+                referrer_id,
+                "🎉 Nuevo bono por referido",
+                "Tu referido completó su primera cita. Se acreditaron puntos en tu cuenta.",
+            )
+
+    # Notificación de recompensa alcanzada
+    if wallet.get("points", 0) >= rules.get("reward_threshold", 0):
+        await send_push_notification(
+            client_id,
+            "🎁 ¡Recompensa disponible!",
+            f"Has alcanzado {wallet.get('points', 0)} puntos. {rules.get('reward_description')}.",
+        )
+
+    return wallet
+
+# ==================== CLIENT LOGS ====================
+
+@api_router.post("/logs")
+async def ingest_client_log(entry: ClientLog):
+    try:
+        payload = entry.dict()
+        await db.client_logs.insert_one({**payload, "ingested_at": datetime.now(timezone.utc)})
+        log_message = f"Client log [{entry.level}] - {entry.message} | context={entry.context} | screen={entry.screen}"
+        if entry.level.lower() in ("warn", "warning"):
+            logger.warning(log_message)
+        elif entry.level.lower() == "info":
+            logger.info(log_message)
+        else:
+            logger.error(log_message)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Error ingesting client log: {e}")
+        raise HTTPException(status_code=500, detail="Failed to ingest log")
+
 # ==================== ADMIN DASHBOARD ====================
 
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(shop_id: str):
     try:
-        # Count appointments by status
-        total_appointments = await db.appointments.count_documents({"shop_id": shop_id})
-        completed_appointments = await db.appointments.count_documents({
-            "shop_id": shop_id,
-            "status": "completed"
-        })
-        
-        # Count barbers
+        shop = await db.barbershops.find_one({"shop_id": shop_id}, {"_id": 0, "capacity": 1})
+        capacity = shop.get("capacity") if shop else None
+
+        # Get all appointments for the shop
+        appointments = await db.appointments.find({"shop_id": shop_id}).to_list(length=None)
+
+        total_appointments = len(appointments)
+        completed_appointments = len([a for a in appointments if a.get("status") == "completed"])
         total_barbers = await db.barbers.count_documents({"shop_id": shop_id})
-        
-        # Get today's appointments
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = today_start + timedelta(days=1)
-        today_appointments = await db.appointments.count_documents({
-            "shop_id": shop_id,
-            "scheduled_time": {"$gte": today_start, "$lt": today_end}
-        })
-        
+
+        today_appointments = [
+            a for a in appointments
+            if today_start <= a.get("scheduled_time", today_start) < today_end
+        ]
+        today_completed = [a for a in today_appointments if a.get("status") == "completed"]
+
+        status_breakdown = {
+            "scheduled": len([a for a in today_appointments if a.get("status") == "scheduled"]),
+            "completed": len(today_completed),
+            "cancelled": len([a for a in today_appointments if a.get("status") == "cancelled"]),
+            "in_progress": len([a for a in today_appointments if a.get("status") == "in_progress"]),
+        }
+
+        # Compute ticket average and top services
+        service_ids = list({a.get("service_id") for a in appointments if a.get("service_id")})
+        services = await db.services.find(
+            {"shop_id": shop_id, "service_id": {"$in": service_ids}},
+            {"_id": 0, "service_id": 1, "name": 1, "price": 1}
+        ).to_list(length=None)
+        service_lookup = {s["service_id"]: s for s in services}
+
+        revenue_today = 0.0
+        for appt in today_completed:
+            service = service_lookup.get(appt.get("service_id"))
+            if service:
+                revenue_today += float(service.get("price", 0))
+
+        ticket_average = 0.0
+        if today_completed:
+            ticket_average = revenue_today / len(today_completed)
+
+        service_counts: Dict[str, int] = {}
+        for appt in appointments:
+            service_id = appt.get("service_id")
+            if service_id:
+                service_counts[service_id] = service_counts.get(service_id, 0) + 1
+
+        top_services = [
+            {
+                "service_id": sid,
+                "name": service_lookup.get(sid, {}).get("name", "Servicio"),
+                "count": count,
+                "price": service_lookup.get(sid, {}).get("price"),
+            }
+            for sid, count in sorted(service_counts.items(), key=lambda item: item[1], reverse=True)[:5]
+        ]
+
+        occupancy_rate = None
+        if capacity and capacity > 0:
+            occupancy_rate = min(100.0, (len(today_appointments) / capacity) * 100)
+
+        recent_appointments = sorted(
+            appointments,
+            key=lambda a: a.get("scheduled_time", today_start),
+            reverse=True,
+        )[:5]
+
+        safe_recent = [
+            {
+                "appointment_id": appt.get("appointment_id"),
+                "scheduled_time": appt.get("scheduled_time"),
+                "status": appt.get("status"),
+            }
+            for appt in recent_appointments
+        ]
+
         return {
             "total_appointments": total_appointments,
             "completed_appointments": completed_appointments,
             "total_barbers": total_barbers,
-            "today_appointments": today_appointments
+            "today_appointments": len(today_appointments),
+            "status_breakdown": status_breakdown,
+            "capacity": capacity,
+            "occupancy_rate": occupancy_rate,
+            "revenue_today": revenue_today,
+            "ticket_average": ticket_average,
+            "top_services": top_services,
+            "recent_appointments": safe_recent,
+            "last_updated": now,
         }
     except Exception as e:
         logger.error(f"Error getting dashboard stats: {e}")
@@ -447,7 +836,7 @@ class AIScanRequest(BaseModel):
 class AIScanResponse(BaseModel):
     success: bool
     face_shape: Optional[str] = None
-    recommendations: List[str] = []
+    recommendations: List[str] = Field(default_factory=list)
     detailed_analysis: Optional[str] = None
     error: Optional[str] = None
 
@@ -614,7 +1003,7 @@ class HaircutStyle(BaseModel):
 class AIScanResponseV2(BaseModel):
     success: bool
     face_shape: Optional[str] = None
-    recommendations: List[HaircutStyle] = []
+    recommendations: List[HaircutStyle] = Field(default_factory=list)
     detailed_analysis: Optional[str] = None
     error: Optional[str] = None
 

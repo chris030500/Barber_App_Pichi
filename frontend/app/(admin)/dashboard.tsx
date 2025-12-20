@@ -1,26 +1,42 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
-import Constants from 'expo-constants';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Card from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
 import { palette, typography } from '../../styles/theme';
+import { BACKEND_URL } from '../../utils/backendUrl';
+import { logNetworkError } from '../../utils/logger';
 
-const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+interface StatusBreakdown {
+  scheduled: number;
+  completed: number;
+  cancelled: number;
+  in_progress: number;
+}
+
+interface TopService {
+  service_id: string;
+  name: string;
+  count: number;
+  price?: number;
+}
 
 interface DashboardStats {
   totalAppointments: number;
   todayAppointments: number;
   completedAppointments: number;
-  cancelledAppointments: number;
   totalBarbers: number;
-  availableBarbers: number;
-  totalServices: number;
-  estimatedRevenue: number;
+  revenueToday: number;
+  ticketAverage: number;
+  occupancyRate: number | null;
+  capacity: number | null;
+  statusBreakdown: StatusBreakdown;
+  topServices: TopService[];
+  lastUpdated?: string;
 }
 
 interface RecentAppointment {
@@ -31,80 +47,68 @@ interface RecentAppointment {
 
 export default function AdminDashboardScreen() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalAppointments: 0,
-    todayAppointments: 0,
-    completedAppointments: 0,
-    cancelledAppointments: 0,
-    totalBarbers: 0,
-    availableBarbers: 0,
-    totalServices: 0,
-    estimatedRevenue: 0
-  });
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentAppointments, setRecentAppointments] = useState<RecentAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [shopName, setShopName] = useState<string>('');
 
   useEffect(() => {
     loadDashboardData();
   }, []);
 
   const loadDashboardData = async () => {
+    setError(null);
     try {
-      // Get barbershop first (admin's shop)
       const shopsResponse = await axios.get(`${BACKEND_URL}/api/barbershops`);
-      const shop = shopsResponse.data[0]; // Assuming first shop for now
-      
+      const shop = shopsResponse.data[0];
+
       if (!shop) {
+        setShopName('');
+        setStats(null);
+        setRecentAppointments([]);
         setLoading(false);
         return;
       }
 
-      // Fetch all data in parallel
-      const [appointmentsRes, barbersRes, servicesRes] = await Promise.all([
-        axios.get(`${BACKEND_URL}/api/appointments`, { params: { shop_id: shop.shop_id } }),
-        axios.get(`${BACKEND_URL}/api/barbers`, { params: { shop_id: shop.shop_id } }),
-        axios.get(`${BACKEND_URL}/api/services`, { params: { shop_id: shop.shop_id } })
-      ]);
+      setShopName(shop.name || 'Tu barbería');
 
-      const appointments = appointmentsRes.data;
-      const barbers = barbersRes.data;
-      const services = servicesRes.data;
-
-      // Calculate stats
-      const today = new Date().toDateString();
-      const todayAppointments = appointments.filter((a: any) => 
-        new Date(a.scheduled_time).toDateString() === today
-      );
-      const completedAppointments = appointments.filter((a: any) => a.status === 'completed');
-      const cancelledAppointments = appointments.filter((a: any) => a.status === 'cancelled');
-      const availableBarbers = barbers.filter((b: any) => b.status === 'available');
-
-      // Estimate revenue (average service price * completed appointments)
-      const avgPrice = services.length > 0 
-        ? services.reduce((sum: number, s: any) => sum + s.price, 0) / services.length 
-        : 0;
-      const estimatedRevenue = completedAppointments.length * avgPrice;
-
-      setStats({
-        totalAppointments: appointments.length,
-        todayAppointments: todayAppointments.length,
-        completedAppointments: completedAppointments.length,
-        cancelledAppointments: cancelledAppointments.length,
-        totalBarbers: barbers.length,
-        availableBarbers: availableBarbers.length,
-        totalServices: services.length,
-        estimatedRevenue
+      const statsResponse = await axios.get(`${BACKEND_URL}/api/dashboard/stats`, {
+        params: { shop_id: shop.shop_id }
       });
 
-      // Get recent appointments (last 5)
-      const sorted = appointments
-        .sort((a: any, b: any) => new Date(b.scheduled_time).getTime() - new Date(a.scheduled_time).getTime())
-        .slice(0, 5);
-      setRecentAppointments(sorted);
+      const payload = statsResponse.data;
 
-    } catch (error) {
+      const normalized: DashboardStats = {
+        totalAppointments: payload?.total_appointments ?? 0,
+        todayAppointments: payload?.today_appointments ?? 0,
+        completedAppointments: payload?.completed_appointments ?? 0,
+        totalBarbers: payload?.total_barbers ?? 0,
+        revenueToday: payload?.revenue_today ?? 0,
+        ticketAverage: payload?.ticket_average ?? 0,
+        occupancyRate: payload?.occupancy_rate ?? null,
+        capacity: payload?.capacity ?? null,
+        statusBreakdown: payload?.status_breakdown ?? {
+          scheduled: 0,
+          completed: 0,
+          cancelled: 0,
+          in_progress: 0,
+        },
+        topServices: payload?.top_services ?? [],
+        lastUpdated: payload?.last_updated,
+      };
+
+      setStats(normalized);
+      setRecentAppointments(payload?.recent_appointments ?? []);
+    } catch (error: any) {
       console.error('Error loading dashboard data:', error);
+      setError('No pudimos cargar el panel de métricas. Desliza para reintentar.');
+      await logNetworkError('admin_dashboard_fetch_failed', {
+        screen: 'admin_dashboard',
+        userId: user?.user_id,
+        context: { message: error?.message, stack: error?.stack },
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -121,17 +125,69 @@ export default function AdminDashboardScreen() {
       case 'scheduled': return palette.accent;
       case 'completed': return palette.success;
       case 'cancelled': return palette.danger;
+      case 'in_progress': return palette.warning;
       default: return palette.textSecondary;
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'scheduled': return 'Programada';
-      case 'completed': return 'Completada';
-      case 'cancelled': return 'Cancelada';
-      default: return status;
+  const maxTopServiceCount = useMemo(() => {
+    if (!stats?.topServices?.length) return 1;
+    return Math.max(...stats.topServices.map((s) => s.count));
+  }, [stats?.topServices]);
+
+  const totalTodayAppointments = useMemo(() => {
+    if (!stats) return 0;
+    const breakdown = stats.statusBreakdown;
+    return breakdown.scheduled + breakdown.completed + breakdown.cancelled + breakdown.in_progress;
+  }, [stats]);
+
+  const renderStatusRow = (label: string, value: number, color: string) => (
+    <View style={styles.statusRow}>
+      <View style={styles.statusRowHeader}>
+        <Text style={styles.statusLabel}>{label}</Text>
+        <Text style={styles.statusValue}>{value}</Text>
+      </View>
+      <View style={styles.progressTrack}>
+        <View
+          style={[
+            styles.progressFill,
+            {
+              width: `${totalTodayAppointments ? Math.min(100, (value / totalTodayAppointments) * 100) : 0}%`,
+              backgroundColor: color,
+            },
+          ]}
+        />
+      </View>
+    </View>
+  );
+
+  const renderTopServices = () => {
+    if (!stats?.topServices?.length) {
+      return (
+        <Card style={styles.emptyCard}>
+          <Ionicons name="bar-chart-outline" size={40} color={palette.textSecondary} />
+          <Text style={styles.emptyText}>Aún no hay servicios destacados</Text>
+        </Card>
+      );
     }
+
+    return stats.topServices.map((service) => {
+      const width = Math.max(8, (service.count / maxTopServiceCount) * 100);
+      return (
+        <Card key={service.service_id} style={styles.serviceCard}>
+          <View style={styles.serviceRow}>
+            <View style={styles.serviceInfo}>
+              <Text style={styles.serviceName}>{service.name}</Text>
+              <Text style={styles.serviceMeta}>{service.count} citas · ${service.price ?? '--'}</Text>
+            </View>
+            <Text style={styles.serviceBadge}>Top</Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${width}%`, backgroundColor: palette.accent }]} />
+          </View>
+        </Card>
+      );
+    });
   };
 
   return (
@@ -148,6 +204,7 @@ export default function AdminDashboardScreen() {
             <Text style={styles.date}>
               {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}
             </Text>
+            {shopName ? <Text style={styles.shopName}>{shopName}</Text> : null}
           </View>
           <View style={styles.adminBadge}>
             <Ionicons name="shield-checkmark" size={20} color={palette.accent} />
@@ -155,78 +212,143 @@ export default function AdminDashboardScreen() {
           </View>
         </View>
 
-        {/* Main Stats */}
-        <View style={styles.statsGrid}>
-          <Card style={[styles.statCard, styles.statPrimary]}>
-            <Ionicons name="calendar" size={28} color="#FFFFFF" />
-            <Text style={styles.statNumberPrimary}>{stats.todayAppointments}</Text>
-            <Text style={styles.statLabelPrimary}>Citas Hoy</Text>
+        {error && (
+          <Card style={styles.errorCard}>
+            <View style={styles.errorRow}>
+              <Ionicons name="warning" size={20} color={palette.danger} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+            <TouchableOpacity style={styles.retryButton} onPress={loadDashboardData}>
+              <Text style={styles.retryText}>Reintentar</Text>
+            </TouchableOpacity>
           </Card>
-          <Card style={styles.statCard}>
-            <Ionicons name="checkmark-circle" size={28} color={palette.success} />
-            <Text style={styles.statNumber}>{stats.completedAppointments}</Text>
-            <Text style={styles.statLabel}>Completadas</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Ionicons name="people" size={28} color={palette.accentSecondary} />
-            <Text style={styles.statNumber}>{stats.availableBarbers}/{stats.totalBarbers}</Text>
-            <Text style={styles.statLabel}>Barberos</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Ionicons name="cash" size={28} color={palette.warning} />
-            <Text style={styles.statNumber}>${stats.estimatedRevenue.toFixed(0)}</Text>
-            <Text style={styles.statLabel}>Ingresos Est.</Text>
-          </Card>
-        </View>
+        )}
 
-        {/* Quick Stats Row */}
-        <View style={styles.quickStatsRow}>
-          <View style={styles.quickStat}>
-            <Text style={styles.quickStatNumber}>{stats.totalAppointments}</Text>
-            <Text style={styles.quickStatLabel}>Total Citas</Text>
-          </View>
-          <View style={styles.quickStatDivider} />
-          <View style={styles.quickStat}>
-            <Text style={styles.quickStatNumber}>{stats.totalServices}</Text>
-            <Text style={styles.quickStatLabel}>Servicios</Text>
-          </View>
-          <View style={styles.quickStatDivider} />
-          <View style={styles.quickStat}>
-            <Text style={[styles.quickStatNumber, { color: palette.danger }]}>{stats.cancelledAppointments}</Text>
-            <Text style={styles.quickStatLabel}>Canceladas</Text>
-          </View>
-        </View>
+        {loading ? (
+          <Card style={styles.loadingCard}>
+            <ActivityIndicator color={palette.accent} />
+            <Text style={styles.loadingText}>Cargando métricas...</Text>
+          </Card>
+        ) : null}
 
-        {/* Recent Appointments */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Citas Recientes</Text>
-          {recentAppointments.length === 0 ? (
-            <Card style={styles.emptyCard}>
-          <Ionicons name="calendar-outline" size={40} color={palette.textSecondary} />
-              <Text style={styles.emptyText}>No hay citas recientes</Text>
-            </Card>
-          ) : (
-            recentAppointments.map((apt) => (
-              <Card key={apt.appointment_id} style={styles.appointmentCard}>
-                <View style={styles.appointmentRow}>
-                  <View style={styles.appointmentInfo}>
-                    <Text style={styles.appointmentTime}>
-                      {format(new Date(apt.scheduled_time), "HH:mm", { locale: es })}
-                    </Text>
-                    <Text style={styles.appointmentDate}>
-                      {format(new Date(apt.scheduled_time), "d MMM", { locale: es })}
-                    </Text>
-                  </View>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(apt.status) + '20' }]}>
-                    <Text style={[styles.statusText, { color: getStatusColor(apt.status) }]}>
-                      {getStatusText(apt.status)}
-                    </Text>
-                  </View>
-                </View>
+        {!stats && !loading ? (
+          <Card style={styles.emptyCard}>
+            <Ionicons name="storefront-outline" size={40} color={palette.textSecondary} />
+            <Text style={styles.emptyText}>Crea una barbería para ver las métricas</Text>
+          </Card>
+        ) : null}
+
+        {stats ? (
+          <>
+            <View style={styles.statsGrid}>
+              <Card style={[styles.statCard, styles.statPrimary]}>
+                <Ionicons name="calendar" size={28} color="#FFFFFF" />
+                <Text style={styles.statNumberPrimary}>{stats.todayAppointments}</Text>
+                <Text style={styles.statLabelPrimary}>Citas Hoy</Text>
               </Card>
-            ))
-          )}
-        </View>
+              <Card style={styles.statCard}>
+                <Ionicons name="cash" size={28} color={palette.warning} />
+                <Text style={styles.statNumber}>${stats.revenueToday.toFixed(0)}</Text>
+                <Text style={styles.statLabel}>Ingresos Hoy</Text>
+              </Card>
+              <Card style={styles.statCard}>
+                <Ionicons name="pricetag" size={28} color={palette.accentSecondary} />
+                <Text style={styles.statNumber}>${stats.ticketAverage.toFixed(0)}</Text>
+                <Text style={styles.statLabel}>Ticket Promedio</Text>
+              </Card>
+              <Card style={styles.statCard}>
+                <Ionicons name="barbell" size={28} color={palette.success} />
+                <Text style={styles.statNumber}>{stats.totalBarbers}</Text>
+                <Text style={styles.statLabel}>Barberos</Text>
+              </Card>
+            </View>
+
+            <Card style={styles.occupancyCard}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.sectionTitle}>Ocupación de agenda</Text>
+                <Text style={styles.badge}>{stats.capacity ? `${stats.capacity} sillas` : 'Sin capacidad'}</Text>
+              </View>
+              <View style={styles.progressTrackTall}>
+                <View
+                  style={[styles.progressFillTall, {
+                    width: `${stats.occupancyRate ? Math.min(stats.occupancyRate, 100) : 0}%`,
+                    backgroundColor: palette.accent,
+                  }]} />
+              </View>
+              <View style={styles.occupancyFooter}>
+                <Text style={styles.occupancyValue}>{stats.occupancyRate ? `${stats.occupancyRate.toFixed(0)}%` : '--'}</Text>
+                <Text style={styles.occupancyHint}>Citas de hoy vs capacidad</Text>
+              </View>
+            </Card>
+
+            <View style={styles.quickStatsRow}>
+              <View style={styles.quickStat}>
+                <Text style={styles.quickStatNumber}>{stats.totalAppointments}</Text>
+                <Text style={styles.quickStatLabel}>Citas totales</Text>
+              </View>
+              <View style={styles.quickStatDivider} />
+              <View style={styles.quickStat}>
+                <Text style={styles.quickStatNumber}>{stats.completedAppointments}</Text>
+                <Text style={styles.quickStatLabel}>Completadas</Text>
+              </View>
+              <View style={styles.quickStatDivider} />
+              <View style={styles.quickStat}>
+                <Text style={[styles.quickStatNumber, { color: palette.warning }]}>{stats.statusBreakdown.in_progress}</Text>
+                <Text style={styles.quickStatLabel}>En curso</Text>
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Estado de las citas hoy</Text>
+              <Card style={styles.statusCard}>
+                {renderStatusRow('Programadas', stats.statusBreakdown.scheduled, palette.accent)}
+                {renderStatusRow('Completadas', stats.statusBreakdown.completed, palette.success)}
+                {renderStatusRow('Canceladas', stats.statusBreakdown.cancelled, palette.danger)}
+                {renderStatusRow('En curso', stats.statusBreakdown.in_progress, palette.warning)}
+              </Card>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Top servicios por barbería</Text>
+              {renderTopServices()}
+            </View>
+
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Citas recientes</Text>
+                <Text style={styles.sectionHint}>Últimas 5</Text>
+              </View>
+              {recentAppointments.length === 0 ? (
+                <Card style={styles.emptyCard}>
+                  <Ionicons name="calendar-outline" size={40} color={palette.textSecondary} />
+                  <Text style={styles.emptyText}>No hay citas recientes</Text>
+                </Card>
+              ) : (
+                recentAppointments.map((apt) => (
+                  <Card key={apt.appointment_id} style={styles.appointmentCard}>
+                    <View style={styles.appointmentRow}>
+                      <View style={styles.appointmentInfo}>
+                        <Text style={styles.appointmentTime}>
+                          {format(new Date(apt.scheduled_time), 'HH:mm', { locale: es })}
+                        </Text>
+                        <Text style={styles.appointmentDate}>
+                          {format(new Date(apt.scheduled_time), 'd MMM', { locale: es })}
+                        </Text>
+                      </View>
+                      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(apt.status) + '20' }]}>
+                        <Text style={[styles.statusText, { color: getStatusColor(apt.status) }]}>
+                          {apt.status}
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
+                ))
+              )}
+            </View>
+
+            <Text style={styles.updatedAt}>Actualizado: {stats.lastUpdated ? format(new Date(stats.lastUpdated), 'HH:mm') : 'N/D'}</Text>
+          </>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -255,6 +377,11 @@ const styles = StyleSheet.create({
     ...typography.body,
     marginTop: 4,
     textTransform: 'capitalize',
+  },
+  shopName: {
+    ...typography.body,
+    marginTop: 6,
+    color: palette.textSecondary,
   },
   adminBadge: {
     flexDirection: 'row',
@@ -309,6 +436,50 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     marginTop: 4,
   },
+  occupancyCard: {
+    marginHorizontal: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  badge: {
+    ...typography.body,
+    color: palette.accent,
+    backgroundColor: palette.backgroundAlt,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    fontWeight: '600',
+  },
+  progressTrackTall: {
+    height: 12,
+    backgroundColor: palette.backgroundAlt,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  progressFillTall: {
+    height: '100%',
+    borderRadius: 12,
+  },
+  occupancyFooter: {
+    marginTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  occupancyValue: {
+    ...typography.heading,
+    fontSize: 20,
+  },
+  occupancyHint: {
+    ...typography.body,
+    color: palette.textSecondary,
+  },
   quickStatsRow: {
     flexDirection: 'row',
     backgroundColor: palette.surface,
@@ -345,6 +516,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginBottom: 12,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  sectionHint: {
+    ...typography.body,
+    color: palette.textSecondary,
+  },
   appointmentCard: {
     marginBottom: 8,
     padding: 12,
@@ -378,9 +559,121 @@ const styles = StyleSheet.create({
   emptyCard: {
     alignItems: 'center',
     paddingVertical: 32,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: 14,
+    marginHorizontal: 4,
   },
   emptyText: {
     ...typography.body,
     marginTop: 8,
+  },
+  statusCard: {
+    padding: 16,
+  },
+  statusRow: {
+    marginBottom: 12,
+  },
+  statusRowHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  statusLabel: {
+    ...typography.body,
+  },
+  statusValue: {
+    ...typography.heading,
+    fontSize: 16,
+  },
+  progressTrack: {
+    height: 8,
+    backgroundColor: palette.backgroundAlt,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 8,
+  },
+  serviceCard: {
+    marginBottom: 10,
+    padding: 12,
+  },
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  serviceInfo: {
+    gap: 4,
+  },
+  serviceName: {
+    ...typography.heading,
+    fontSize: 16,
+  },
+  serviceMeta: {
+    ...typography.body,
+    color: palette.textSecondary,
+  },
+  serviceBadge: {
+    ...typography.body,
+    color: palette.accent,
+    fontWeight: '700',
+  },
+  quickServiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 12,
+    borderColor: palette.danger,
+    borderWidth: 1,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  errorText: {
+    ...typography.body,
+    color: palette.danger,
+  },
+  retryButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: palette.surfaceAlt,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  retryText: {
+    ...typography.body,
+    color: palette.accent,
+    fontWeight: '700',
+  },
+  loadingCard: {
+    marginHorizontal: 16,
+    marginVertical: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    ...typography.body,
+  },
+  updatedAt: {
+    ...typography.body,
+    color: palette.textSecondary,
+    textAlign: 'center',
+    paddingBottom: 20,
   },
 });

@@ -1,13 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextInput } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+  Modal,
+  TextInput,
+  ScrollView,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import axios from 'axios';
-import Constants from 'expo-constants';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-
-const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+import { BACKEND_URL } from '../../utils/backendUrl';
+import { palette, typography, shadows } from '../../styles/theme';
 
 interface Service {
   service_id: string;
@@ -18,13 +28,21 @@ interface Service {
   duration: number;
 }
 
+interface Barbershop {
+  shop_id: string;
+  name: string;
+  address?: string;
+}
+
 export default function AdminServicesScreen() {
+  const router = useRouter();
+  const [shops, setShops] = useState<Barbershop[]>([]);
+  const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
-  const [shopId, setShopId] = useState<string | null>(null);
-  
+
   // Form fields
   const [formName, setFormName] = useState('');
   const [formDescription, setFormDescription] = useState('');
@@ -32,19 +50,41 @@ export default function AdminServicesScreen() {
   const [formDuration, setFormDuration] = useState('');
 
   useEffect(() => {
-    loadServices();
+    loadShops();
   }, []);
 
-  const loadServices = async () => {
+  useEffect(() => {
+    if (shops.length === 0) {
+      setSelectedShopId(null);
+      return;
+    }
+
+    const exists = shops.some((shop) => shop.shop_id === selectedShopId);
+    if (!exists) {
+      setSelectedShopId(shops[0].shop_id);
+    }
+  }, [shops]);
+
+  useEffect(() => {
+    if (selectedShopId) {
+      loadServices(selectedShopId);
+    } else {
+      setServices([]);
+      setLoading(false);
+    }
+  }, [selectedShopId]);
+
+  const selectedShopName = useMemo(
+    () => shops.find((shop) => shop.shop_id === selectedShopId)?.name || '',
+    [selectedShopId, shops],
+  );
+
+  const loadShops = async () => {
     try {
       const shopsResponse = await axios.get(`${BACKEND_URL}/api/barbershops`);
-      const shop = shopsResponse.data[0];
-      if (shop) {
-        setShopId(shop.shop_id);
-        const servicesResponse = await axios.get(`${BACKEND_URL}/api/services`, {
-          params: { shop_id: shop.shop_id }
-        });
-        setServices(servicesResponse.data);
+      setShops(shopsResponse.data);
+      if (shopsResponse.data[0]) {
+        setSelectedShopId((current) => current || shopsResponse.data[0].shop_id);
       }
     } catch (error) {
       console.error('Error loading services:', error);
@@ -53,7 +93,34 @@ export default function AdminServicesScreen() {
     }
   };
 
+  const loadServices = async (shopId: string) => {
+    setLoading(true);
+    try {
+      const servicesResponse = await axios.get(`${BACKEND_URL}/api/services`, {
+        params: { shop_id: shopId },
+      });
+      setServices(servicesResponse.data);
+    } catch (error) {
+      console.error('Error loading services:', error);
+      Alert.alert('Error', 'No se pudieron cargar los servicios');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const openCreateModal = () => {
+    if (!selectedShopId) {
+      Alert.alert(
+        'Crea una barbería',
+        'Necesitas una barbería antes de agregar servicios.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Abrir barberías', onPress: () => router.push('/(admin)/barbershops') },
+        ],
+      );
+      return;
+    }
+
     setEditingService(null);
     setFormName('');
     setFormDescription('');
@@ -72,30 +139,30 @@ export default function AdminServicesScreen() {
   };
 
   const saveService = async () => {
-    if (!shopId || !formName || !formPrice) {
+    if (!selectedShopId || !formName || !formPrice) {
       Alert.alert('Error', 'Completa los campos requeridos');
       return;
     }
-    
+
     const serviceData = {
       name: formName,
       description: formDescription,
       price: parseFloat(formPrice),
-      duration: parseInt(formDuration) || 30
+      duration: parseInt(formDuration) || 30,
     };
-    
+
     try {
       if (editingService) {
         await axios.put(`${BACKEND_URL}/api/services/${editingService.service_id}`, serviceData);
-        setServices(services.map(s => 
-          s.service_id === editingService.service_id 
+        setServices(services.map(s =>
+          s.service_id === editingService.service_id
             ? { ...s, ...serviceData }
             : s
         ));
         Alert.alert('Éxito', 'Servicio actualizado');
       } else {
         const response = await axios.post(`${BACKEND_URL}/api/services`, {
-          shop_id: shopId,
+          shop_id: selectedShopId,
           ...serviceData
         });
         setServices([...services, response.data]);
@@ -174,12 +241,57 @@ export default function AdminServicesScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Gestión de Servicios</Text>
-        <TouchableOpacity style={styles.addButton} onPress={openCreateModal}>
-          <Ionicons name="add" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.addButton, styles.secondaryButton]}
+            onPress={() => router.push('/(admin)/barbershops')}
+          >
+            <Ionicons name="business" size={18} color="#2563EB" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addButton} onPress={openCreateModal}>
+            <Ionicons name="add" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Summary Card */}
+      <View style={styles.shopSelector}>
+        <View style={styles.shopSelectorHeader}>
+          <Text style={styles.selectorLabel}>Barbería</Text>
+          <Button
+            title="Gestionar"
+            variant="secondary"
+            size="small"
+            onPress={() => router.push('/(admin)/barbershops')}
+          />
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.shopsScroll}>
+          {shops.map((shop) => (
+            <TouchableOpacity
+              key={shop.shop_id}
+              style={[
+                styles.shopPill,
+                selectedShopId === shop.shop_id && styles.shopPillActive,
+              ]}
+              onPress={() => setSelectedShopId(shop.shop_id)}
+            >
+              <Text
+                style={[
+                  styles.shopPillText,
+                  selectedShopId === shop.shop_id && styles.shopPillTextActive,
+                ]}
+              >
+                {shop.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          {shops.length === 0 && !loading ? (
+            <View style={styles.noShopPill}>
+              <Text style={styles.shopPillText}>Crea una barbería para empezar</Text>
+            </View>
+          ) : null}
+        </ScrollView>
+      </View>
+
       <View style={styles.summaryCard}>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryNumber}>{services.length}</Text>
@@ -188,33 +300,48 @@ export default function AdminServicesScreen() {
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <Text style={styles.summaryNumber}>
-            ${services.length > 0 ? Math.min(...services.map(s => s.price)) : 0}
+            {services.length > 0 ? `$${Math.min(...services.map(s => s.price))}` : '—'}
           </Text>
           <Text style={styles.summaryLabel}>Desde</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <Text style={styles.summaryNumber}>
-            ${services.length > 0 ? Math.max(...services.map(s => s.price)) : 0}
+            {services.length > 0 ? `$${Math.max(...services.map(s => s.price))}` : '—'}
           </Text>
           <Text style={styles.summaryLabel}>Hasta</Text>
         </View>
       </View>
 
-      <FlatList
-        data={services}
-        renderItem={renderService}
-        keyExtractor={(item) => item.service_id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="list-outline" size={64} color="#CBD5E1" />
-            <Text style={styles.emptyText}>No hay servicios registrados</Text>
-            <Button title="Agregar Servicio" onPress={openCreateModal} variant="primary" />
-          </View>
-        }
-      />
+      {!loading && shops.length === 0 ? (
+        <Card style={styles.emptyCard}>
+          <Ionicons name="alert-circle" size={28} color={palette.accent} />
+          <Text style={styles.emptyTitle}>No hay barberías registradas</Text>
+          <Text style={styles.emptySubtitle}>
+            Crea una barbería para agregar y asignar servicios.
+          </Text>
+          <Button title="Crear barbería" onPress={() => router.push('/(admin)/barbershops')} />
+        </Card>
+      ) : null}
+
+      {selectedShopId ? (
+        <FlatList
+          data={services}
+          renderItem={renderService}
+          keyExtractor={(item) => item.service_id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          refreshing={loading}
+          onRefresh={() => selectedShopId && loadServices(selectedShopId)}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="list-outline" size={64} color="#CBD5E1" />
+              <Text style={styles.emptyText}>No hay servicios registrados</Text>
+              <Button title="Agregar Servicio" onPress={openCreateModal} variant="primary" />
+            </View>
+          }
+        />
+      ) : null}
 
       {/* Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
@@ -223,6 +350,10 @@ export default function AdminServicesScreen() {
             <Text style={styles.modalTitle}>
               {editingService ? 'Editar Servicio' : 'Nuevo Servicio'}
             </Text>
+
+            {selectedShopName ? (
+              <Text style={styles.selectedShop}>Barbería: {selectedShopName}</Text>
+            ) : null}
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Nombre *</Text>
@@ -293,7 +424,7 @@ export default function AdminServicesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
@@ -301,48 +432,102 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surfaceAlt,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: palette.border,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    ...typography.heading,
+    fontSize: 22,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 10,
   },
   addButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#2563EB',
+    backgroundColor: palette.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  secondaryButton: {
+    backgroundColor: palette.backgroundAlt,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  shopSelector: {
+    padding: 16,
+    backgroundColor: palette.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+    gap: 8,
+  },
+  shopSelectorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectorLabel: {
+    ...typography.heading,
+    fontSize: 16,
+  },
+  shopsScroll: {
+    marginTop: 4,
+  },
+  shopPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: palette.backgroundAlt,
+    marginRight: 8,
+  },
+  shopPillActive: {
+    backgroundColor: palette.accent,
+  },
+  shopPillText: {
+    ...typography.label,
+    color: palette.textPrimary,
+  },
+  shopPillTextActive: {
+    color: '#FFFFFF',
+  },
+  noShopPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: palette.backgroundAlt,
+  },
   summaryCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     marginHorizontal: 16,
     marginTop: 16,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+    ...shadows.soft,
   },
   summaryItem: {
     flex: 1,
     alignItems: 'center',
   },
   summaryNumber: {
+    ...typography.heading,
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E293B',
   },
   summaryLabel: {
+    ...typography.body,
     fontSize: 12,
-    color: '#64748B',
     marginTop: 2,
   },
   summaryDivider: {
     width: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: palette.border,
+    height: '100%',
   },
   list: {
     padding: 16,
@@ -358,7 +543,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: palette.backgroundAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -367,13 +552,11 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   serviceName: {
+    ...typography.heading,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
   },
   serviceDescription: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     marginTop: 4,
     lineHeight: 20,
   },
@@ -388,16 +571,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   detailText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
+    ...typography.label,
+    color: palette.textPrimary,
   },
   actions: {
     flexDirection: 'row',
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: palette.border,
     gap: 16,
   },
   actionButton: {
@@ -406,9 +588,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   actionText: {
-    fontSize: 14,
-    color: '#2563EB',
-    fontWeight: '500',
+    ...typography.label,
+    color: palette.accent,
   },
   empty: {
     alignItems: 'center',
@@ -416,8 +597,27 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   emptyText: {
+    ...typography.body,
     fontSize: 16,
-    color: '#64748B',
+  },
+  emptyCard: {
+    margin: 16,
+    gap: 8,
+    alignItems: 'center',
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.border,
+    ...shadows.soft,
+  },
+  emptyTitle: {
+    ...typography.heading,
+    fontSize: 18,
+  },
+  emptySubtitle: {
+    ...typography.body,
+    color: palette.textSecondary,
+    textAlign: 'center',
+    marginBottom: 8,
   },
   modalOverlay: {
     flex: 1,
@@ -425,33 +625,37 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   modalTitle: {
+    ...typography.heading,
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E293B',
     marginBottom: 24,
+  },
+  selectedShop: {
+    ...typography.body,
+    marginBottom: 12,
   },
   inputGroup: {
     marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    ...typography.label,
+    color: palette.textPrimary,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.backgroundAlt,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: palette.border,
   },
   textArea: {
     minHeight: 60,

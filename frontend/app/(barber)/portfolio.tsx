@@ -4,12 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
-import Constants from 'expo-constants';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
-
-const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+import { palette, typography, shadows } from '../../styles/theme';
+import { BACKEND_URL } from '../../utils/backendUrl';
 
 interface PortfolioImage {
   url: string;
@@ -117,21 +116,21 @@ export default function BarberPortfolioScreen() {
         <Text style={styles.subtitle}>Muestra tus mejores trabajos</Text>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Add Image Button */}
         <TouchableOpacity style={styles.addButton} onPress={addImage}>
-          <Ionicons name="add-circle-outline" size={32} color="#2563EB" />
+          <Ionicons name="add-circle-outline" size={32} color={palette.accentSecondary} />
           <Text style={styles.addButtonText}>Agregar Foto</Text>
         </TouchableOpacity>
 
         {/* Portfolio Grid */}
         {portfolio.length === 0 ? (
           <Card style={styles.emptyCard}>
-            <Ionicons name="images-outline" size={64} color="#CBD5E1" />
+            <Ionicons name="images-outline" size={64} color={palette.textSecondary} />
             <Text style={styles.emptyTitle}>Tu portafolio está vacío</Text>
             <Text style={styles.emptyText}>
               Agrega fotos de tus mejores trabajos para que los clientes vean tu estilo
@@ -142,11 +141,11 @@ export default function BarberPortfolioScreen() {
             {portfolio.map((item, index) => (
               <View key={index} style={styles.imageContainer}>
                 <Image source={{ uri: item.url }} style={styles.portfolioImage} />
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.removeButton}
                   onPress={() => removeImage(index)}
                 >
-                  <Ionicons name="close-circle" size={24} color="#EF4444" />
+                  <Ionicons name="close-circle" size={24} color={palette.danger} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -156,19 +155,19 @@ export default function BarberPortfolioScreen() {
         {/* Tips Card */}
         <Card style={styles.tipsCard}>
           <View style={styles.tipsHeader}>
-            <Ionicons name="bulb-outline" size={20} color="#F59E0B" />
+            <Ionicons name="bulb-outline" size={20} color={palette.warning} />
             <Text style={styles.tipsTitle}>Consejos para tu portafolio</Text>
           </View>
           <View style={styles.tipItem}>
-            <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+            <Ionicons name="checkmark-circle" size={16} color={palette.success} />
             <Text style={styles.tipText}>Usa fotos con buena iluminación</Text>
           </View>
           <View style={styles.tipItem}>
-            <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+            <Ionicons name="checkmark-circle" size={16} color={palette.success} />
             <Text style={styles.tipText}>Muestra variedad de estilos</Text>
           </View>
           <View style={styles.tipItem}>
-            <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+            <Ionicons name="checkmark-circle" size={16} color={palette.success} />
             <Text style={styles.tipText}>Incluye tus especialidades</Text>
           </View>
         </Card>
@@ -180,63 +179,65 @@ export default function BarberPortfolioScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: palette.background,
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: palette.border,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    ...typography.heading,
+    fontSize: 24,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 2,
+    ...typography.body,
+    color: palette.textSecondary,
+    marginTop: 4,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 16,
+    gap: 16,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: palette.surfaceAlt,
     padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#BFDBFE',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: palette.border,
     borderStyle: 'dashed',
     marginBottom: 16,
+    ...shadows.soft,
   },
   addButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2563EB',
+    ...typography.subheading,
+    color: palette.accentSecondary,
   },
   emptyCard: {
     alignItems: 'center',
     paddingVertical: 48,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.border,
+    ...shadows.soft,
   },
   emptyTitle: {
+    ...typography.heading,
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1E293B',
     marginTop: 16,
     marginBottom: 8,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...typography.body,
     textAlign: 'center',
     lineHeight: 20,
     paddingHorizontal: 24,
@@ -250,25 +251,35 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
     width: '48%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: palette.surfaceAlt,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   portfolioImage: {
     width: '100%',
     aspectRatio: 0.8,
-    borderRadius: 12,
-    backgroundColor: '#E2E8F0',
+    borderRadius: 0,
+    backgroundColor: palette.surface,
   },
   removeButton: {
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderRadius: 12,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   tipsCard: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
     borderWidth: 1,
     marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
   tipsHeader: {
     flexDirection: 'row',
@@ -277,9 +288,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   tipsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#92400E',
+    ...typography.subheading,
+    color: palette.accentSecondary,
   },
   tipItem: {
     flexDirection: 'row',
@@ -288,7 +298,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   tipText: {
-    fontSize: 13,
-    color: '#78350F',
+    ...typography.body,
+    color: palette.textSecondary,
   },
 });
