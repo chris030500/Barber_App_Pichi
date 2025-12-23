@@ -134,6 +134,7 @@ export default function AdminBarbershopsScreen() {
       }
       setModalVisible(false);
     } catch (error) {
+      console.error('Error al guardar la barbería', error);
       Alert.alert('Error', 'No se pudo guardar la barbería');
     }
   };
@@ -153,6 +154,7 @@ export default function AdminBarbershopsScreen() {
               setShops((prev) => prev.filter((s) => s.shop_id !== shop.shop_id));
               Alert.alert('Éxito', 'Barbería eliminada');
             } catch (error) {
+              console.error('Error al eliminar barbería', error);
               Alert.alert('Error', 'No se pudo eliminar la barbería');
             }
           },

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,11 +54,7 @@ export default function AdminDashboardScreen() {
   const [error, setError] = useState<string | null>(null);
   const [shopName, setShopName] = useState<string>('');
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setError(null);
     try {
       const shopsResponse = await axios.get(`${BACKEND_URL}/api/barbershops`);
@@ -113,7 +109,11 @@ export default function AdminDashboardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user?.user_id]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   const onRefresh = () => {
     setRefreshing(true);

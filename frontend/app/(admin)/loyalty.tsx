@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -16,7 +16,6 @@ interface LoyaltyRules {
 }
 
 export default function LoyaltyConfigScreen() {
-  const [rules, setRules] = useState<LoyaltyRules | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -35,7 +34,6 @@ export default function LoyaltyConfigScreen() {
     try {
       const response = await axios.get(`${BACKEND_URL}/api/loyalty/rules`);
       const data = response.data as LoyaltyRules;
-      setRules(data);
       setPointsPerAppointment(String(data.points_per_completed_appointment || 0));
       setReferralBonus(String(data.referral_bonus || 0));
       setRewardThreshold(String(data.reward_threshold || 0));
@@ -67,8 +65,7 @@ export default function LoyaltyConfigScreen() {
         reward_threshold: rt,
         reward_description,
       };
-      const response = await axios.put(`${BACKEND_URL}/api/loyalty/rules`, payload);
-      setRules(response.data);
+      await axios.put(`${BACKEND_URL}/api/loyalty/rules`, payload);
       Alert.alert('Guardado', 'Reglas de fidelidad actualizadas');
     } catch (error) {
       console.error('Error guardando reglas', error);
@@ -77,6 +74,17 @@ export default function LoyaltyConfigScreen() {
       setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingState}>
+          <ActivityIndicator color={palette.accent} size="large" />
+          <Text style={styles.loadingText}>Cargando reglas de fidelidad...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -308,5 +316,15 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: palette.textPrimary,
     flex: 1,
+  },
+  loadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    ...typography.body,
+    color: palette.textSecondary,
   },
 });

@@ -63,7 +63,7 @@ export default function AdminServicesScreen() {
     if (!exists) {
       setSelectedShopId(shops[0].shop_id);
     }
-  }, [shops]);
+  }, [selectedShopId, shops]);
 
   useEffect(() => {
     if (selectedShopId) {

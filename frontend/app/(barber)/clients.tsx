@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,13 +25,7 @@ export default function BarberClientsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      loadCompletedAppointments();
-    }
-  }, [user]);
-
-  const loadCompletedAppointments = async () => {
+  const loadCompletedAppointments = useCallback(async () => {
     try {
       // Get barber profile first
       const barberResponse = await axios.get(`${BACKEND_URL}/api/barbers?user_id=${user?.user_id}`);
@@ -50,7 +44,13 @@ export default function BarberClientsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user?.user_id]);
+
+  useEffect(() => {
+    if (user) {
+      loadCompletedAppointments();
+    }
+  }, [loadCompletedAppointments, user]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -97,6 +97,17 @@ export default function BarberClientsScreen() {
       </Card>
     );
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingState}>
+          <Ionicons name="time-outline" size={28} color={palette.accent} />
+          <Text style={styles.loadingText}>Cargando clientes atendidos...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -246,6 +257,18 @@ const styles = StyleSheet.create({
   },
   detailText: {
     ...typography.body,
+  },
+  loadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 32,
+  },
+  loadingText: {
+    ...typography.body,
+    color: palette.textSecondary,
+    textAlign: 'center',
   },
   emptyState: {
     flex: 1,
