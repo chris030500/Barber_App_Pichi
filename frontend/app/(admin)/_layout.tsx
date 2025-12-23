@@ -3,19 +3,21 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { palette } from '../../styles/theme';
+import { useAuth, normalizeRole } from '../../contexts/AuthContext';
 
 export default function AdminLayout() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
+  const role = normalizeRole(user?.role);
 
   useEffect(() => {
-    if (!isLoading && (!isAuthenticated || (user && user.role !== 'admin'))) {
+    if (!isLoading && (!isAuthenticated || role !== 'admin')) {
       console.log('🔴 AdminLayout: Unauthorized access, redirecting to login');
-      router.replace('/(auth)/login');
+      router.replace('/login');
     }
-  }, [isLoading, isAuthenticated, user]);
+  }, [isLoading, isAuthenticated, role, router]);
 
-  if (isLoading || !isAuthenticated || (user && user.role !== 'admin')) {
+  if (isLoading || !isAuthenticated || role !== 'admin') {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2563EB" />
@@ -49,6 +51,15 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
+        name="barbershops"
+        options={{
+          title: 'Barberías',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="business" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="barbers"
         options={{
           title: 'Barberos',
@@ -63,6 +74,15 @@ export default function AdminLayout() {
           title: 'Servicios',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="loyalty"
+        options={{
+          title: 'Fidelidad',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="gift" size={size} color={color} />
           ),
         }}
       />
@@ -84,6 +104,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.background,
   },
 });

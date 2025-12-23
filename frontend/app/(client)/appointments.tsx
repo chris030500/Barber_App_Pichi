@@ -4,16 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
-import Constants from 'expo-constants';
-import { format, isValid, parseISO } from 'date-fns';
+import { addDays, format, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { palette, typography } from '../../styles/theme';
-
-const BACKEND_URL =
-  Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+import { BACKEND_URL } from '../../utils/backendUrl';
 
 interface Appointment {
   appointment_id: string;
@@ -22,6 +19,9 @@ interface Appointment {
   scheduled_time: string; // ej: "2025-12-17 10:30:00" o ISO
   status: string;
   notes?: string;
+  deposit_required?: boolean;
+  deposit_status?: string;
+  deposit_amount?: number;
 }
 
 function toValidDate(raw: unknown): Date | null {
@@ -90,6 +90,35 @@ export default function AppointmentsScreen() {
     }
   };
 
+  const handleReschedule = (appointment: Appointment) => {
+    const currentDate = toValidDate(appointment.scheduled_time);
+    const candidate = currentDate ? addDays(currentDate, 1) : addDays(new Date(), 1);
+    const candidateLabel = format(candidate, "EEEE d 'de' MMMM HH:mm", { locale: es });
+
+    Alert.alert(
+      'Reprogramar',
+      `Mover esta cita a ${candidateLabel}? Puedes reprogramar hasta 2h antes.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            try {
+              await axios.post(`${BACKEND_URL}/api/appointments/${appointment.appointment_id}/reschedule`, {
+                new_time: candidate.toISOString(),
+                reason: 'Solicitado desde el perfil de cliente',
+              });
+              Alert.alert('Listo', 'Tu cita fue reprogramada.');
+              loadAppointments();
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo reprogramar. Intenta con otra hora.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleCancelAppointment = async (appointmentId: string) => {
     Alert.alert('Cancelar cita', '¿Estás seguro de que quieres cancelar esta cita?', [
       { text: 'No', style: 'cancel' },
@@ -142,7 +171,12 @@ export default function AppointmentsScreen() {
   };
 
   const renderAppointment = ({ item }: { item: Appointment }) => {
-    const appointmentDate = new Date(item.scheduled_time);
+    const appointmentDate = toValidDate(item.scheduled_time);
+    const depositText = item.deposit_required
+      ? `Anticipo ${item.deposit_status || 'pendiente'}${
+          item.deposit_amount ? ` • $${item.deposit_amount}` : ''
+        }`
+      : 'Sin anticipo';
 
     return (
       <Card style={styles.appointmentCard}>
@@ -166,13 +200,15 @@ export default function AppointmentsScreen() {
           </View>
         </View>
 
+        <Text style={styles.depositBadge}>{depositText}</Text>
+
         {item.notes && <Text style={styles.notes}>{item.notes}</Text>}
 
         {item.status === 'scheduled' && (
           <View style={styles.actions}>
             <Button
               title="Reprogramar"
-              onPress={() => Alert.alert('Próximamente', 'Función de reprogramar')}
+              onPress={() => handleReschedule(item)}
               variant="outline"
               size="small"
               style={styles.actionButton}
@@ -323,6 +359,10 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  depositBadge: {
+    ...typography.caption,
+    color: palette.accent,
   },
   notes: {
     ...typography.body,

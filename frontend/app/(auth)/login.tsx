@@ -17,10 +17,11 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRedirectPath } from '../../utils/navigation';
-import { shadows } from '../../styles/theme';
+import { palette, shadows, typography } from '../../styles/theme';
 
 const badgeShadow = shadows.soft;
 const cardShadow = shadows.elevated;
+const accentColor = palette.accent;
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -227,11 +228,11 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
-    backgroundColor: '#0B1220',
+    backgroundColor: palette.background,
   },
   backgroundImage: {
     resizeMode: 'cover',
-    opacity: 0.2,
+    opacity: 0.24,
   },
   safeArea: {
     flex: 1,
@@ -254,38 +255,37 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 16,
-    backgroundColor: '#FACC15',
+    backgroundColor: accentColor,
     alignItems: 'center',
     justifyContent: 'center',
     ...badgeShadow,
   },
   brand: {
-    color: '#F8FAFC',
+    ...typography.heading,
     fontSize: 22,
-    fontWeight: '700',
   },
   tagline: {
-    color: '#CBD5E1',
+    ...typography.body,
     fontSize: 14,
   },
   hero: {
-    color: '#E2E8F0',
+    color: palette.textPrimary,
     fontSize: 28,
     fontWeight: '800',
     lineHeight: 34,
   },
   heroSub: {
-    color: '#94A3B8',
+    color: palette.textSecondary,
     fontSize: 15,
     lineHeight: 22,
   },
   card: {
-    backgroundColor: 'rgba(15, 23, 42, 0.82)',
+    backgroundColor: palette.surface,
     borderRadius: 24,
     padding: 20,
     gap: 16,
     borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.1)',
+    borderColor: palette.border,
     ...cardShadow,
   },
   cardHeader: {
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: '#FACC15',
+    backgroundColor: palette.accentSecondary,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -308,12 +308,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   cardTitle: {
-    color: '#F8FAFC',
+    color: palette.textPrimary,
     fontSize: 22,
     fontWeight: '700',
   },
   cardSubtitle: {
-    color: '#CBD5E1',
+    color: palette.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -330,16 +330,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
+    borderColor: palette.border,
   },
   actionPrimary: {
-    backgroundColor: '#FACC15',
+    backgroundColor: accentColor,
   },
   actionGhost: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: palette.surfaceAlt,
   },
   actionText: {
-    color: '#E2E8F0',
+    color: palette.textPrimary,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(148, 163, 184, 0.4)',
   },
   dividerText: {
-    color: '#CBD5E1',
+    color: palette.textSecondary,
     fontSize: 13,
   },
   input: {
@@ -379,17 +379,17 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: palette.surfaceAlt,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: palette.border,
     marginTop: 22,
   },
   primaryButton: {
     marginTop: 4,
-    backgroundColor: '#2563EB',
+    backgroundColor: accentColor,
   },
   primaryButtonText: {
-    color: '#F8FAFC',
+    color: palette.textPrimary,
     letterSpacing: 0.3,
   },
   footer: {
@@ -399,13 +399,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   link: {
-    color: '#F8FAFC',
+    color: palette.accent,
     fontWeight: '700',
   },
   dot: {
     width: 5,
     height: 5,
     borderRadius: 5,
-    backgroundColor: '#64748B',
+    backgroundColor: palette.textSecondary,
   },
 });

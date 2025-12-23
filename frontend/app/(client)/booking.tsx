@@ -5,24 +5,23 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Switch,
   Alert,
   ActivityIndicator,
   Platform,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
-import Constants from 'expo-constants';
 import { format, addDays, setHours, setMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { palette, shadows, typography } from '../../styles/theme';
-
-const BACKEND_URL =
-  Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+import { BACKEND_URL } from '../../utils/backendUrl';
 
 // --- Helpers para normalizar respuestas ---
 function asArray<T>(value: any): T[] {
@@ -130,6 +129,9 @@ export default function BookingScreen() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [depositRequired, setDepositRequired] = useState(false);
+  const [depositAmount, setDepositAmount] = useState<number | null>(null);
+  const [depositStatusMessage, setDepositStatusMessage] = useState<string | null>(null);
 
   const availableDates = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
 
@@ -153,6 +155,16 @@ export default function BookingScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedShop?.shop_id]);
+
+  useEffect(() => {
+    if (selectedService) {
+      const suggested = Number((selectedService.price * 0.3).toFixed(2));
+      setDepositAmount(suggested);
+    } else {
+      setDepositAmount(null);
+      setDepositRequired(false);
+    }
+  }, [selectedService]);
 
   const loadInitialData = async () => {
     try {
@@ -205,19 +217,59 @@ export default function BookingScreen() {
     }
 
     setSubmitting(true);
+    setDepositStatusMessage(null);
 
     try {
       const [hours, minutes] = selectedTime.split(':').map(Number);
       const scheduledTime = setMinutes(setHours(selectedDate, hours), minutes);
 
-      await axios.post(`${BACKEND_URL}/api/appointments`, {
+      const appointmentResponse = await axios.post(`${BACKEND_URL}/api/appointments`, {
         shop_id: selectedShop.shop_id,
         barber_id: selectedBarber.barber_id,
         client_user_id: user.user_id,
         service_id: selectedService.service_id,
         scheduled_time: scheduledTime.toISOString(),
         notes: notes || null,
+        deposit_required: depositRequired,
+        deposit_amount: depositRequired ? depositAmount : null,
       });
+
+      const appointment = appointmentResponse.data;
+
+      if (depositRequired && depositAmount && appointment?.appointment_id) {
+        const depositRes = await axios.post(`${BACKEND_URL}/api/payments/deposits`, {
+          appointment_id: appointment.appointment_id,
+          client_user_id: user.user_id,
+          amount: depositAmount,
+          currency: 'USD',
+          provider: 'manual',
+          metadata: {
+            shop_id: selectedShop.shop_id,
+            service_id: selectedService.service_id,
+          },
+        });
+
+        const paymentUrl = depositRes?.data?.payment_url;
+        setDepositStatusMessage(
+          depositRes?.data?.status === 'paid'
+            ? 'Anticipo registrado'
+            : 'Anticipo pendiente de pago'
+        );
+
+        if (paymentUrl) {
+          Alert.alert(
+            'Completa tu anticipo',
+            'Abre el enlace para pagar el anticipo y asegurar tu cita.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              {
+                text: 'Abrir enlace',
+                onPress: () => Linking.openURL(paymentUrl),
+              },
+            ]
+          );
+        }
+      }
 
       Alert.alert(
         '¡Cita reservada!',
@@ -442,6 +494,43 @@ export default function BookingScreen() {
             </TouchableOpacity>
           );
         })}
+      </View>
+
+      <View style={styles.depositBox}>
+        <View style={styles.depositHeader}>
+          <View>
+            <Text style={styles.depositTitle}>Anticipo opcional</Text>
+            <Text style={styles.depositSubtitle}>
+              Paga un depósito para asegurar tu lugar y reducir no-shows.
+            </Text>
+          </View>
+          <Switch
+            value={depositRequired}
+            onValueChange={setDepositRequired}
+            trackColor={{ false: palette.border, true: palette.accentSecondary }}
+            thumbColor={depositRequired ? palette.accent : palette.textPrimary}
+          />
+        </View>
+
+        {depositRequired && (
+          <View style={styles.depositDetails}>
+            <Text style={styles.depositAmount}>
+              Anticipo sugerido: ${depositAmount ?? 0} ({selectedService?.price ? '30% del servicio' : 'ajustable'})
+            </Text>
+            <Text style={styles.depositHint}>
+              El cobro se procesa vía enlace seguro. Puedes pagar más tarde desde tu correo.
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.policyBox}>
+          <Ionicons name="time" size={16} color={palette.accentSecondary} />
+          <Text style={styles.policyText}>
+            Reprogramaciones permitidas hasta 2h antes. Recibirás recordatorios 24h y 2h previas a tu cita.
+          </Text>
+        </View>
+
+        {depositStatusMessage && <Text style={styles.depositStatus}>{depositStatusMessage}</Text>}
       </View>
 
       <View style={styles.notesBox}>
@@ -739,6 +828,64 @@ const styles = StyleSheet.create({
   notesValue: {
     ...typography.body,
     color: palette.textPrimary,
+  },
+  depositBox: {
+    backgroundColor: palette.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  depositHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  depositTitle: {
+    ...typography.subtitle,
+    color: palette.textPrimary,
+  },
+  depositSubtitle: {
+    ...typography.body,
+    color: palette.textSecondary,
+    marginTop: 4,
+    maxWidth: '85%',
+  },
+  depositDetails: {
+    marginTop: 4,
+  },
+  depositAmount: {
+    ...typography.bodyBold,
+    color: palette.accent,
+  },
+  depositHint: {
+    ...typography.caption,
+    color: palette.textSecondary,
+    marginTop: 4,
+  },
+  policyBox: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    backgroundColor: `${palette.accentSecondary}11`,
+    padding: 10,
+    borderRadius: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: `${palette.accentSecondary}55`,
+  },
+  policyText: {
+    ...typography.caption,
+    color: palette.textPrimary,
+    flex: 1,
+    lineHeight: 16,
+  },
+  depositStatus: {
+    marginTop: 8,
+    color: palette.accent,
+    ...typography.caption,
   },
   emptyText: {
     ...typography.body,
